@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALIGN | Counter Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Geist:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "tertiary": "#000000",
+                "outline": "#7e7576",
+                "on-tertiary-fixed-variant": "#474646",
+                "on-secondary-fixed-variant": "#005228",
+                "secondary-container": "#74f9a0",
+                "inverse-surface": "#2e3132",
+                "on-secondary": "#ffffff",
+                "on-error-container": "#93000a",
+                "on-secondary-fixed": "#00210d",
+                "status-success": "#4ade80",
+                "surface": "#0f172a",
+                "primary-container": "#1e293b",
+                "on-error": "#ffffff",
+                "surface-container-highest": "#334155",
+                "surface-container": "#1e293b",
+                "on-tertiary-container": "#858383",
+                "on-primary-container": "#94a3b8",
+                "on-surface": "#f8fafc",
+                "on-primary-fixed-variant": "#474747",
+                "surface-container-high": "#334155",
+                "primary": "#f8fafc",
+                "primary-fixed-dim": "#c6c6c6",
+                "brand-gold": "#f5a623",
+                "brand-red": "#d0021b",
+                "border-light": "#334155",
+                "secondary": "#10b981",
+                "on-tertiary": "#ffffff",
+                "tertiary-fixed": "#e5e2e1",
+                "error-container": "#7f1d1d",
+                "secondary-fixed": "#34d399",
+                "inverse-primary": "#c6c6c6",
+                "surface-container-low": "#0f172a",
+                "on-secondary-container": "#064e3b",
+                "surface-dim": "#d9dadb",
+                "primary-fixed": "#e2e2e2",
+                "surface-tint": "#5e5e5e",
+                "surface-dark": "#020617",
+                "secondary-fixed-dim": "#59df89",
+                "on-primary": "#020617",
+                "background": "#020617",
+                "surface-bright": "#1e293b",
+                "status-error": "#ef4444",
+                "on-tertiary-fixed": "#1c1b1b",
+                "surface-variant": "#334155",
+                "outline-variant": "#475569",
+                "on-surface-variant": "#94a3b8",
+                "on-primary-fixed": "#1b1b1b",
+                "tertiary-container": "#1c1b1b",
+                "inverse-on-surface": "#f0f1f2",
+                "tertiary-fixed-dim": "#c8c6c5",
+                "surface-container-lowest": "#020617",
+                "on-background": "#f8fafc",
+                "status-warning": "#f59e0b",
+                "error": "#ef4444"
+        },
+        "borderRadius": {
+                "DEFAULT": "4px",
+                "lg": "4px",
+                "xl": "4px",
+                "full": "9999px"
+        },
+        "spacing": {
+                "container-max": "100%",
+                "component-gap": "20px",
+                "section-padding": "80px",
+                "margin-page": "48px",
+                "gutter": "24px",
+                "row-height-compact": "32px",
+                "row-height-standard": "64px"
+        },
+        "fontFamily": {
+                "headline-lg": ["Inter"],
+                "body-lg": ["Inter"],
+                "headline-md": ["Inter"],
+                "data-tabular": ["Geist"],
+                "body-md": ["Inter"],
+                "headline-lg-mobile": ["Inter"],
+                "display-xl": ["Inter"],
+                "label-caps": ["Geist"]
+        },
+        "fontSize": {
+                "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "500"}],
+                "headline-md": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                "data-tabular": ["14px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                "headline-lg-mobile": ["40px", {"lineHeight": "1.1", "fontWeight": "900"}],
+                "display-xl": ["72px", {"lineHeight": "1.0", "letterSpacing": "-0.05em", "fontWeight": "900"}],
+                "label-caps": ["10px", {"lineHeight": "16px", "letterSpacing": "0.15em", "fontWeight": "700"}]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body { background-color: #020617; color: #f8fafc; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .input-focus-ring:focus { border-color: #10b981 !important; outline: none; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-body-md">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-gutter h-row-height-standard docked full-width top-0 z-50">
+<div class="flex items-center gap-6">
+<span class="font-headline-lg text-primary tracking-tighter uppercase">ALIGN</span>
+<div class="h-6 w-px bg-outline-variant"></div>
+<div class="flex flex-col">
+<span class="font-label-caps text-on-surface-variant uppercase">Active Caller</span>
+<span class="font-data-tabular text-secondary">ALLER-204</span>
+</div>
+</div>
+<div class="flex-1 max-w-xl px-12">
+<div class="flex justify-between items-end mb-1">
+<span class="font-label-caps text-on-surface-variant">AISLE 4 PROGRESS</span>
+<span class="font-data-tabular text-primary">65%</span>
+</div>
+<div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full transition-all duration-500" style="width: 65%;"></div>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4 text-secondary">
+<span class="material-symbols-outlined text-[16px]">wifi</span>
+<span class="font-label-caps">SYSTEM ONLINE</span>
+</div>
+<div class="text-right">
+<p class="font-body-md text-primary font-bold">Marcus V.</p>
+<p class="font-label-caps text-on-surface-variant">Group: Aisle 4</p>
+</div>
+<div class="relative w-10 h-10 rounded overflow-hidden border border-outline-variant">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="A professional close-up portrait of a warehouse floor manager named Marcus. He is wearing high-visibility safety gear and a modern headset. The background is a blurred industrial environment with blue and slate grey tones. The lighting is sharp and clinical, emphasizing reliability and professional focus in a high-stakes operational setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBd_EIOYmMTzrPSjaUCj7P_U_rGWEpVV2I04ktoVvaIdu2mPMA2va0FlLXlVH2nKSn-zzqNxwYNgPeNv1W0qcAUs803ro4Oh9mG-TO2p1IUNLvWcrL5vUDOsyF_ehHQ9HGtoe1LizMQvvkCxCY1WIazdeyiFdia1oYf5FVATgIv1xc7MIGfZng3kdxFOzjKo4ENcK_SjTP2SerfcMRpRjwhJ7Vm-S6LlGzyHdVFWjz7-1eBeeMVvn_yr30nynnAolqLJJTMq_yKacM"/>
+</div>
+<div class="flex gap-2">
+<button class="p-2 hover:bg-surface-container-highest rounded transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-highest rounded transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-surface border-r border-outline-variant h-full w-64 flex flex-col docked left-0">
+<div class="p-4 space-y-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded py-2 pl-10 pr-4 text-body-md input-focus-ring" data-testid="sidebar-search-input" placeholder="Scan or Search Ref..." type="text"/>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto no-scrollbar py-2 px-2">
+<div class="px-2 mb-3 font-label-caps text-on-surface-variant uppercase">Assigned Items (Aisle 4)</div>
+<!-- Nav Items -->
+<button class="w-full flex flex-col px-3 py-3 bg-primary-container text-primary font-bold border-l-4 border-secondary transition-transform active:scale-95 text-left mb-2 rounded-r" data-testid="nav-item-active">
+<div class="flex justify-between items-start w-full mb-1">
+<span class="font-data-tabular">REF-99283</span>
+<span class="text-[10px] bg-secondary text-on-primary px-1.5 py-0.5 rounded font-bold">ACTIVE</span>
+</div>
+<span class="text-body-md truncate">Industrial Gasket 42mm</span>
+<span class="font-label-caps text-on-surface-variant mt-1">Bin: A4-12-C</span>
+</button>
+<button class="w-full flex flex-col px-3 py-3 text-on-surface hover:bg-surface-bright rounded transition-colors text-left mb-2" data-testid="nav-item-1">
+<div class="flex justify-between items-start w-full mb-1">
+<span class="font-data-tabular">REF-99401</span>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">pending</span>
+</div>
+<span class="text-body-md truncate">Copper Coupling 1/2"</span>
+<span class="font-label-caps text-on-surface-variant mt-1">Bin: A4-08-A</span>
+</button>
+<button class="w-full flex flex-col px-3 py-3 text-on-surface hover:bg-surface-bright rounded transition-colors text-left mb-2" data-testid="nav-item-2">
+<div class="flex justify-between items-start w-full mb-1">
+<span class="font-data-tabular">REF-88210</span>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">pending</span>
+</div>
+<span class="text-body-md truncate">Steel Flange PN16</span>
+<span class="font-label-caps text-on-surface-variant mt-1">Bin: A4-15-B</span>
+</button>
+<button class="w-full flex flex-col px-3 py-3 text-on-surface hover:bg-surface-bright rounded transition-colors text-left mb-2 opacity-60" data-testid="nav-item-3">
+<div class="flex justify-between items-start w-full mb-1">
+<span class="font-data-tabular">REF-77233</span>
+<span class="material-symbols-outlined text-[14px] text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<span class="text-body-md truncate">O-Ring Kit (Small)</span>
+<span class="font-label-caps text-on-surface-variant mt-1">Completed</span>
+</button>
+</nav>
+<div class="p-4 border-t border-outline-variant space-y-2">
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-bright rounded transition-colors font-label-caps">
+<span class="material-symbols-outlined text-[18px]">contact_support</span> SUPPORT
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-bright rounded transition-colors font-label-caps">
+<span class="material-symbols-outlined text-[18px]">logout</span> LOGOUT
+                </button>
+</div>
+</aside>
+<!-- Main Area -->
+<main class="flex-1 overflow-y-auto p-margin-page relative">
+<div class="max-w-5xl mx-auto space-y-6">
+<!-- Product Card -->
+<div class="bg-surface p-6 border border-outline-variant rounded flex justify-between items-center">
+<div>
+<h1 class="font-headline-lg text-primary mb-2">Industrial Gasket 42mm</h1>
+<div class="flex gap-4 items-center">
+<span class="bg-surface-container-highest px-3 py-1 text-primary font-data-tabular text-label-caps border border-outline-variant rounded">ID: 99283-A4</span>
+<span class="flex items-center gap-2 text-on-surface-variant font-label-caps">
+<span class="material-symbols-outlined text-[16px]">location_on</span> Bin A4-12-C
+                            </span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 border border-outline-variant px-3 py-2 rounded">
+<span class="font-label-caps text-on-surface-variant">MANUAL OVERRIDE</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-secondary"></div>
+</label>
+</div>
+<div class="text-right">
+<p class="font-label-caps text-on-surface-variant mb-1">ATTEMPT STATUS</p>
+<div class="flex gap-1 justify-end">
+<div class="w-8 h-2 bg-secondary rounded-full"></div>
+<div class="w-8 h-2 bg-surface-container-highest rounded-full"></div>
+<div class="w-8 h-2 bg-surface-container-highest rounded-full"></div>
+</div>
+<p class="font-data-tabular text-primary font-bold mt-2 text-sm">1 OF 3 ATTEMPTS</p>
+</div>
+</div>
+</div>
+<!-- Count Form Grid -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left: Large Entry Controls -->
+<div class="col-span-8 space-y-6">
+<div class="bg-surface border border-outline-variant p-8 rounded">
+<div class="grid grid-cols-2 gap-8">
+<div class="space-y-2">
+<label class="font-label-caps text-on-surface-variant tracking-widest uppercase">Physical Quantity</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-lowest border border-outline-variant text-[64px] font-data-tabular text-primary p-6 h-40 text-center rounded input-focus-ring transition-all group-hover:border-secondary shadow-inner" data-testid="input-quantity" placeholder="0" type="number"/>
+<div class="absolute right-4 bottom-4 font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded">PCS</div>
+</div>
+</div>
+<div class="space-y-2">
+<label class="font-label-caps text-on-surface-variant tracking-widest uppercase">Unit Weight</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-lowest border border-outline-variant text-[64px] font-data-tabular text-primary p-6 h-40 text-center rounded input-focus-ring transition-all group-hover:border-secondary shadow-inner" data-testid="input-weight" placeholder="0.00" step="0.01" type="number"/>
+<div class="absolute right-4 bottom-4 font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded">KG</div>
+</div>
+</div>
+<div class="col-span-2 space-y-2">
+<label class="font-label-caps text-on-surface-variant tracking-widest uppercase">Batch Volume Offset (If Applicable)</label>
+<div class="relative group">
+<input class="w-full bg-surface-container-lowest border border-outline-variant text-[32px] font-data-tabular text-primary p-6 h-20 rounded input-focus-ring transition-all group-hover:border-secondary shadow-inner" data-testid="input-volume" placeholder="0" type="number"/>
+<div class="absolute right-4 bottom-4 font-label-caps text-on-surface-variant bg-surface px-2 py-1 border border-outline-variant rounded">CM³</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex gap-4">
+<button class="flex-1 py-4 px-6 border border-outline-variant bg-surface text-primary font-bold flex items-center justify-center gap-2 hover:bg-surface-bright transition-colors rounded" data-testid="btn-flag-mismatch">
+<span class="material-symbols-outlined text-error">flag</span> FLAG MISMATCH
+                            </button>
+<button class="flex-[2] py-4 px-6 bg-secondary text-on-primary font-bold text-headline-md flex items-center justify-center gap-3 hover:opacity-90 active:scale-[0.98] transition-all rounded shadow-lg" data-testid="btn-submit-count">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span> 
+                                SUBMIT COUNT
+                            </button>
+</div>
+</div>
+<!-- Right: Info/Reference Panel -->
+<div class="col-span-4 space-y-6">
+<div class="bg-surface border border-outline-variant rounded overflow-hidden">
+<div class="bg-surface-container px-4 py-3 border-b border-outline-variant flex justify-between items-center">
+<span class="font-label-caps text-on-surface-variant">REFERENCE IMAGE</span>
+<button class="text-secondary flex items-center gap-1 font-label-caps hover:underline">
+<span class="material-symbols-outlined text-[14px]">picture_as_pdf</span> DOCS
+                                </button>
+</div>
+<div class="aspect-square bg-surface-container-lowest flex items-center justify-center relative">
+<img alt="Industrial Gasket Reference" class="w-full h-full object-cover" data-alt="A high-resolution industrial macro photograph of a 42mm metal gasket with precise ridges and a metallic sheen. The object is placed on a dark, non-reflective surface with professional overhead studio lighting that highlights every detail of the manufacturing specs. The visual style is clinical, technical, and high-contrast, fitting for a quality control or inventory management interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-amuw1Y2e3TXt1MLnBwWHufNKybCruvlJfav6RZXlVbRQw4L4PWjo469P-lltXJDYpV4noFQlDILzXmR3GSH2jktEPTP7wuQnIzsa8smbMbMuSap37QI5MLfXX1ptU2_8-oiTqDFu023FhphZemkE1pM7CY61VsoxKLfMF-D6HIsiTLD41ilA1EtfzhEzAx20VU5wf4wFrf9YG1JJ9hg8wWlLQJa5cAyKULwjtQVmhiAm1JOPsmy14oJ-3h2gobMsrI7thL-wPWg"/>
+<div class="absolute bottom-2 right-2 bg-surface/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold border border-outline-variant text-primary">ENLARGE (F4)</div>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant p-5 rounded space-y-5">
+<div>
+<p class="font-label-caps text-on-surface-variant uppercase mb-2">Expected Count</p>
+<p class="font-data-tabular text-headline-md text-on-surface-variant">-- HIDDEN --</p>
+<p class="text-[11px] text-on-surface-variant mt-2 leading-relaxed">Blind count mode active. Perform physical check twice if discrepancy exists.</p>
+</div>
+<div class="h-px bg-outline-variant"></div>
+<div>
+<p class="font-label-caps text-on-surface-variant uppercase mb-3">Product Specs</p>
+<ul class="font-body-md text-on-surface-variant space-y-2">
+<li class="flex justify-between border-b border-outline-variant/30 pb-2"><span>Material</span> <span class="text-primary font-medium">Reinforced Nitrile</span></li>
+<li class="flex justify-between border-b border-outline-variant/30 pb-2"><span>Thickness</span> <span class="text-primary font-medium">3.5mm</span></li>
+<li class="flex justify-between"><span>Weight/Unit</span> <span class="text-primary font-medium">0.12kg</span></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<!-- Scan History Log -->
+<div class="mt-8 bg-surface border border-outline-variant rounded p-4">
+<h3 class="font-label-caps text-on-surface-variant mb-4">SCAN HISTORY</h3>
+<div class="space-y-2 font-data-tabular text-[13px]">
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/30">
+<div class="flex items-center gap-4">
+<span class="text-secondary">10:42:15</span>
+<span class="text-primary">BIN SCAN: A4-12-C</span>
+</div>
+<span class="text-status-success">VERIFIED</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-outline-variant/30">
+<div class="flex items-center gap-4">
+<span class="text-secondary">10:41:03</span>
+<span class="text-primary">ITEM SCAN: REF-99283</span>
+</div>
+<span class="text-status-success">MATCHED</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Keyboard Shortcut Hints -->
+<div class="fixed bottom-6 right-6 flex gap-4 text-[11px] font-bold text-on-surface-variant">
+<div class="flex items-center gap-1.5 border border-outline-variant bg-surface px-2 py-1.5 rounded">
+<span class="bg-surface-container-highest text-primary px-1.5 py-0.5 rounded">ENTER</span> SUBMIT
+                </div>
+<div class="flex items-center gap-1.5 border border-outline-variant bg-surface px-2 py-1.5 rounded">
+<span class="bg-surface-container-highest text-primary px-1.5 py-0.5 rounded">ESC</span> CANCEL
+                </div>
+<div class="flex items-center gap-1.5 border border-outline-variant bg-surface px-2 py-1.5 rounded">
+<span class="bg-surface-container-highest text-primary px-1.5 py-0.5 rounded">F2</span> SCAN BARCODE
+                </div>
+</div>
+</main>
+</div>
+<script>
+        // Micro-interactions for input focus and basic validation logic
+        const inputs = document.querySelectorAll('input[type="number"]');
+        const submitBtn = document.querySelector('[data-testid="btn-submit-count"]');
+        let attempts = 1;
+
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.classList.add('scale-[1.01]');
+                input.parentElement.classList.add('transition-transform');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.classList.remove('scale-[1.01]');
+            });
+        });
+
+        // Toggle focus between main inputs using arrow keys or tab
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Enter' && document.activeElement.tagName !== 'INPUT') {
+                submitBtn.click();
+            }
+        });
+
+        submitBtn.addEventListener('click', () => {
+            if(attempts < 3) {
+                // Mock behavior for UI demonstration
+                console.log('Count submitted. Attempt ' + attempts);
+            } else {
+                alert('Maximum attempts reached. Reference locked for supervisor review.');
+            }
+        });
+    </script>
+</body></html>

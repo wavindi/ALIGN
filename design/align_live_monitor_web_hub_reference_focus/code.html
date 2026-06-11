@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ALIGN Live Monitor Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;family=Geist:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#f8f9fa",
+                        "primary": "#000000",
+                        "surface": "#f8f9fa",
+                        "inverse-surface": "#2e3132",
+                        "on-tertiary-fixed-variant": "#474646",
+                        "on-surface-variant": "#4c4546",
+                        "tertiary": "#000000",
+                        "status-success": "#4ade80",
+                        "surface-dim": "#d9dadb",
+                        "on-primary-fixed": "#1b1b1b",
+                        "secondary-fixed-dim": "#59df89",
+                        "status-warning": "#fbbf24",
+                        "brand-gold": "#f5a623",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary-container": "#00723a",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "surface-container-lowest": "#ffffff",
+                        "border-light": "#f3f4f6",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#e1e3e4",
+                        "secondary-fixed": "#77fca3",
+                        "secondary-container": "#74f9a0",
+                        "brand-red": "#d0021b",
+                        "surface-container": "#edeeef",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#e5e2e1",
+                        "tertiary-container": "#1c1b1b",
+                        "surface-container-high": "#e7e8e9",
+                        "on-surface": "#191c1d",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#cfc4c5",
+                        "primary-container": "#1b1b1b",
+                        "on-secondary-fixed": "#00210d",
+                        "background": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#005228",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#c6c6c6",
+                        "outline": "#7e7576",
+                        "primary-fixed": "#e2e2e2",
+                        "on-tertiary-container": "#858383",
+                        "surface-tint": "#5e5e5e",
+                        "on-primary": "#ffffff",
+                        "primary-fixed-dim": "#c6c6c6",
+                        "on-background": "#191c1d",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-primary-fixed-variant": "#474747",
+                        "surface-dark": "#1c1c1c",
+                        "on-primary-container": "#848484",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-fixed": "#1c1b1b",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#006d38",
+                        "error": "#ba1a1a",
+                        "status-error": "#fca5a5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "component-gap": "20px",
+                        "section-padding": "80px",
+                        "margin-page": "48px",
+                        "container-max": "100%"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Geist"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-xl": ["Inter"],
+                        "data-tabular": ["Geist"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["10px", { "lineHeight": "16px", "letterSpacing": "0.15em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["40px", { "lineHeight": "1.1", "fontWeight": "900" }],
+                        "headline-lg": ["60px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "900" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "display-xl": ["72px", { "lineHeight": "1.0", "letterSpacing": "-0.05em", "fontWeight": "900" }],
+                        "data-tabular": ["24px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #020617; /* User specified background */
+            color: #f8f9fa;
+        }
+        .surface-panel {
+            background-color: #0f172a; /* User specified surface */
+        }
+        .text-emerald {
+            color: #10b981; /* User specified primary/emerald */
+        }
+        .bg-emerald {
+            background-color: #10b981;
+        }
+        .border-emerald {
+            border-color: #10b981;
+        }
+        /* Rigid 4px rounding */
+        * {
+            border-radius: 4px !important;
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden font-body-md text-body-md">
+<!-- SideNavBar -->
+<aside class="bg-surface-dark dark:bg-surface-dark left-0 h-screen w-64 border-r border-outline dark:border-outline-variant shadow-sm flex flex-col h-full p-6 flex-shrink-0 z-20">
+<div class="mb-8">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-container uppercase tracking-widest mb-4 border-b border-outline-variant pb-2">Reference Panel</h3>
+<div class="space-y-6">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant mb-1">Active Batch</p>
+<p class="font-data-tabular text-data-tabular text-emerald font-bold tracking-tight">ALLER-204</p>
+</div>
+<div class="space-y-4">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Total Items</p>
+<p class="font-headline-md text-headline-md text-white">1,284</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Units Scanned</p>
+<p class="font-headline-md text-headline-md text-white">143/220</p>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-1">Est. Time Remaining</p>
+<p class="font-headline-md text-headline-md text-emerald">12m</p>
+</div>
+</div>
+<div class="space-y-4 pt-6 border-t border-outline-variant">
+<h4 class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-container uppercase">Quick Actions</h4>
+<button class="w-full bg-emerald text-primary font-body-lg text-body-lg font-bold py-3 px-4 flex justify-center items-center gap-2 hover:bg-[#34d399] transition-colors">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+                    Manual Scan
+                </button>
+<button class="w-full bg-transparent border border-outline text-white font-body-lg text-body-lg py-3 px-4 flex justify-center items-center gap-2 hover:bg-[#1e293b] transition-colors">
+<span class="material-symbols-outlined">pause_circle</span>
+                    Pause Batch
+                </button>
+</div>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<img alt="System Operator Avatar" class="w-10 h-10 object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA56-ou2ux5hNlgPWRxxzPPaZ_GiHbS2loxe7WR3xSMO4itHMGUPeXeerqW_zotbOPEz2fkMfFRSRjIioKr6sbtDH0pJX8t4nqZK-N6RjXYx0Wi-KWwWL2_zO2yevnIHH_MPEBhA9zMEFYY2VhWEkE6rWjBJoBmHJR0XmaAkksaIfs25NVk_AZgmUBWAjrUeEHWEopP-j-A_-N0-AZSgQmDL9WixtJ0IuWSrQ48P9NH-pyHC7NT-iBndmsU4v3OaeGga6PzSvJ8MqI"/>
+<div>
+<h2 class="font-label-caps text-label-caps text-secondary text-emerald">Warehouse Alpha</h2>
+<p class="text-on-surface-variant dark:text-on-primary-fixed-variant text-[10px] uppercase">Lead Auditor</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Layout Area -->
+<main class="flex-1 flex overflow-hidden">
+<!-- Reference Panel -->
+<!-- Main Content Canvas -->
+<section class="flex-1 overflow-y-auto p-8 relative">
+<!-- Header -->
+<header class="flex justify-between items-end mb-8 border-b border-[#374151] pb-4">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-white">Live Monitor</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant dark:text-on-primary-container mt-2">Real-time telemetry and audit verification.</p>
+</div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-2 text-status-success font-label-caps text-label-caps border border-status-success px-3 py-1 bg-status-success/10">
+<span class="w-2 h-2 bg-status-success rounded-full animate-pulse inline-block"></span>
+                        SYSTEM NOMINAL
+                    </span>
+<span class="font-data-tabular text-body-md text-on-surface-variant" id="live-clock">14:22:04 UTC</span>
+</div>
+</header>
+<!-- Telemetry Cards -->
+<div class="grid grid-cols-3 gap-6 mb-8">
+<div class="surface-panel border border-[#374151] p-6 shadow-2xl">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2">Total Items</p>
+<p class="font-display-xl text-display-xl text-white">1,284</p>
+</div>
+<div class="surface-panel border border-[#374151] p-6 shadow-2xl relative overflow-hidden">
+<div class="absolute right-0 top-0 h-full w-2 bg-status-warning"></div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2">Alerts Found</p>
+<p class="font-display-xl text-display-xl text-status-warning">18</p>
+</div>
+<div class="surface-panel border border-[#374151] p-6 shadow-2xl">
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-2">To Count</p>
+<p class="font-display-xl text-display-xl text-white">77</p>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-6">
+<!-- Progress Vis -->
+<div class="col-span-1 surface-panel border border-[#374151] p-6 flex flex-col items-center justify-center min-h-[400px]">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant self-start mb-auto w-full border-b border-[#374151] pb-2">Batch Completion</h3>
+<div class="relative w-48 h-48 flex items-center justify-center my-8">
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 100 100">
+<circle cx="50" cy="50" fill="none" r="45" stroke="#1e293b" stroke-width="10"></circle>
+<circle class="transition-all duration-1000 ease-out" cx="50" cy="50" fill="none" r="45" stroke="#10b981" stroke-dasharray="282.7" stroke-dashoffset="45.23" stroke-width="10"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-display-xl text-[48px] text-white">84<span class="text-headline-md">%</span></span>
+</div>
+</div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mt-auto uppercase tracking-widest text-center">Est. Time Remaining: 12m</p>
+</div>
+<!-- Recent Activity Table -->
+<div class="col-span-2 surface-panel border border-[#374151] flex flex-col">
+<div class="p-6 border-b border-[#374151] flex justify-between items-center">
+<h3 class="font-label-caps text-label-caps text-on-surface-variant uppercase">Recent Activity Log</h3>
+<button class="text-emerald hover:text-white transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+<div class="overflow-x-auto flex-1 p-2">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-[#374151]">
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant">Reference ID</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant">Location</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant text-right">Qty</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant text-center">Status</th>
+<th class="p-4 font-label-caps text-label-caps text-on-surface-variant dark:text-on-primary-fixed-variant text-right">Timestamp</th>
+</tr>
+</thead>
+<tbody class="font-data-tabular text-[14px]">
+<tr class="border-b border-[#1e293b] hover:bg-[#1e293b] transition-colors">
+<td class="p-4 text-white">REF-8921-A</td>
+<td class="p-4 text-on-surface-variant">SEC-04-R12</td>
+<td class="p-4 text-white text-right">144</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-emerald" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</td>
+<td class="p-4 text-on-surface-variant text-right">14:21:44</td>
+</tr>
+<tr class="border-b border-[#1e293b] hover:bg-[#1e293b] transition-colors">
+<td class="p-4 text-white">REF-8922-B</td>
+<td class="p-4 text-on-surface-variant">SEC-04-R12</td>
+<td class="p-4 text-white text-right">12</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-emerald" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</td>
+<td class="p-4 text-on-surface-variant text-right">14:20:12</td>
+</tr>
+<tr class="border-b border-[#1e293b] bg-[#332514] border-l-4 border-l-status-warning hover:bg-[#4d361c] transition-colors">
+<td class="p-4 text-status-warning font-bold">REF-8919-X</td>
+<td class="p-4 text-on-surface-variant">SEC-04-R11</td>
+<td class="p-4 text-status-warning text-right font-bold">0 <span class="text-[10px] text-on-surface-variant">(Expected 40)</span></td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-status-warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+</td>
+<td class="p-4 text-on-surface-variant text-right">14:18:55</td>
+</tr>
+<tr class="border-b border-[#1e293b] hover:bg-[#1e293b] transition-colors">
+<td class="p-4 text-white">REF-8915-C</td>
+<td class="p-4 text-on-surface-variant">SEC-04-R10</td>
+<td class="p-4 text-white text-right">250</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-emerald" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</td>
+<td class="p-4 text-on-surface-variant text-right">14:15:02</td>
+</tr>
+<tr class="hover:bg-[#1e293b] transition-colors">
+<td class="p-4 text-white">REF-8910-D</td>
+<td class="p-4 text-on-surface-variant">SEC-04-R09</td>
+<td class="p-4 text-white text-right">88</td>
+<td class="p-4 text-center">
+<span class="material-symbols-outlined text-emerald" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</td>
+<td class="p-4 text-on-surface-variant text-right">14:10:33</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        // Simple live clock for immersion
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toISOString().substring(11, 19) + ' UTC';
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.textContent = timeString;
+        }
+        setInterval(updateClock, 1000);
+    </script>
+</body></html>
