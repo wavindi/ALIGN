@@ -5,7 +5,6 @@ APP_NAME="ALIGN Operational Suite"
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-3000}"
-DATABASE_URL="${DATABASE_URL:-file:./dev.db}"
 SERVICE_MODE=0
 START_APP=1
 
@@ -13,17 +12,16 @@ usage() {
   cat <<USAGE
 Usage: ./setup [options]
 
-Installs and starts ${APP_NAME} on a Linux server.
+Installs and starts ${APP_NAME} on a Linux server without requiring a database.
 
 Options:
   --service       Install and start ALIGN as a systemd service.
-  --no-start      Install, prepare the database, and build without starting.
+  --no-start      Install and build without starting.
   --help          Show this help.
 
 Environment:
   HOST            Bind address. Default: 0.0.0.0
   PORT            Web port. Default: 3000
-  DATABASE_URL    SQLite database URL. Default: file:./dev.db
 
 Examples:
   ./setup
@@ -59,21 +57,18 @@ node_supported() {
   command_exists node || return 1
   node -e '
     const [major, minor] = process.versions.node.split(".").map(Number);
-    const ok =
-      (major === 20 && minor >= 19) ||
-      (major === 22 && minor >= 12) ||
-      major >= 24;
+    const ok = major > 20 || (major === 20 && minor >= 9);
     process.exit(ok ? 0 : 1);
   ' >/dev/null 2>&1
 }
 
 install_system_packages() {
   if command_exists apt-get; then
-    log "Installing Linux build tools"
+    log "Installing Linux prerequisites"
     sudo_cmd apt-get update
-    sudo_cmd apt-get install -y ca-certificates curl gnupg build-essential python3 openssl
+    sudo_cmd apt-get install -y ca-certificates curl gnupg
   else
-    log "apt-get was not found. Make sure curl, build tools, Python 3, and OpenSSL are installed."
+    log "apt-get was not found. Make sure Node.js 20.9+ and npm are installed."
   fi
 }
 
@@ -84,7 +79,7 @@ install_node_if_needed() {
   fi
 
   if ! command_exists apt-get; then
-    fail "Install Node.js 22 LTS or newer, then run ./setup again."
+    fail "Install Node.js 20.9 or newer, then run ./setup again."
   fi
 
   log "Installing Node.js 22 LTS"
@@ -93,25 +88,8 @@ install_node_if_needed() {
   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo_cmd bash -
   sudo_cmd apt-get install -y nodejs
 
-  node_supported || fail "Node.js was installed but is still not compatible. Need Node 20.19+, 22.12+, or 24+."
+  node_supported || fail "Node.js was installed but is still not compatible. Need Node.js 20.9+."
   log "Node.js $(node -v) is ready"
-}
-
-prepare_env() {
-  cd "$APP_DIR"
-
-  if [ ! -f ".env" ]; then
-    log "Creating .env"
-    if [ -f ".env.example" ]; then
-      cp ".env.example" ".env"
-    else
-      printf 'DATABASE_URL="%s"\n' "$DATABASE_URL" > ".env"
-    fi
-  fi
-
-  if ! grep -q '^DATABASE_URL=' ".env"; then
-    printf '\nDATABASE_URL="%s"\n' "$DATABASE_URL" >> ".env"
-  fi
 }
 
 install_app() {
@@ -123,12 +101,6 @@ install_app() {
   else
     npm install
   fi
-
-  log "Generating Prisma client"
-  npm run db:generate
-
-  log "Preparing SQLite database"
-  npm run db:push
 
   log "Building production bundle"
   npm run build
@@ -142,9 +114,8 @@ local_ip() {
 
 wait_for_app() {
   local url="http://127.0.0.1:${PORT}"
-  local attempts=40
 
-  for _ in $(seq 1 "$attempts"); do
+  for _ in $(seq 1 40); do
     if command_exists curl && curl -fsS "$url" >/dev/null 2>&1; then
       return 0
     fi
@@ -187,7 +158,6 @@ start_foreground() {
   trap cleanup INT TERM
 
   if wait_for_app; then
-    curl -fsS "http://127.0.0.1:${PORT}/api/state" >/dev/null 2>&1 || true
     print_urls
     open_browser_if_possible
   else
@@ -213,7 +183,6 @@ WorkingDirectory=${APP_DIR}
 Environment=NODE_ENV=production
 Environment=HOST=${HOST}
 Environment=PORT=${PORT}
-Environment=DATABASE_URL=${DATABASE_URL}
 ExecStart=/bin/bash -lc 'cd "${APP_DIR}" && exec npx next start -H "${HOST}" -p "${PORT}"'
 Restart=always
 RestartSec=5
@@ -231,7 +200,6 @@ SERVICE
   fi
 
   if wait_for_app; then
-    curl -fsS "http://127.0.0.1:${PORT}/api/state" >/dev/null 2>&1 || true
     print_urls
     log "Service commands: sudo systemctl status align | sudo journalctl -u align -f"
   else
@@ -261,7 +229,6 @@ done
 log "Setting up ${APP_NAME}"
 install_system_packages
 install_node_if_needed
-prepare_env
 install_app
 
 if [ "$START_APP" -eq 0 ]; then

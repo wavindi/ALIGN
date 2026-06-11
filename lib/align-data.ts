@@ -1,6 +1,4 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
-import type { AuditEntry, InventoryReference, User } from "@prisma/client";
-import { prisma } from "./db";
 
 export type Role = "counter" | "financier" | "admin";
 export type MeasureType = "quantity" | "volume" | "weight";
@@ -40,6 +38,22 @@ export type ApiAuditEntry = {
   severity: "info" | "warning" | "critical";
 };
 
+type StoredUser = ApiUser & {
+  passwordHash: string;
+};
+
+type DemoStore = {
+  users: StoredUser[];
+  references: ApiReference[];
+  audit: ApiAuditEntry[];
+  nextAuditId: number;
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var alignDemoStore: DemoStore | undefined;
+}
+
 export const measureTypes: MeasureType[] = ["quantity", "volume", "weight"];
 
 export const measureUnits: Record<MeasureType, string> = {
@@ -47,6 +61,8 @@ export const measureUnits: Record<MeasureType, string> = {
   volume: "L",
   weight: "kg",
 };
+
+const groupNames = ["Group A", "Group B", "Group C"];
 
 const seedReferences: ApiReference[] = [
   {
@@ -185,175 +201,94 @@ export function formatTimestamp(date: Date) {
   )}`;
 }
 
-export function parseTimestamp(value: string) {
-  const parsed = new Date(value.replace(" ", "T"));
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+function cloneReference(reference: ApiReference): ApiReference {
+  return {
+    ...reference,
+    required: [...reference.required],
+    expected: { ...reference.expected },
+    unit: { ...reference.unit },
+    lastCount: reference.lastCount ? { ...reference.lastCount } : undefined,
+  };
 }
 
-export function serializeUser(user: User): ApiUser {
+function serializeUser(user: StoredUser): ApiUser {
   return {
     username: user.username,
     fullName: user.fullName,
-    role: user.role as Role,
-    group: user.groupName,
+    role: user.role,
+    group: user.group,
     locked: user.locked,
   };
 }
 
-export function serializeReference(reference: InventoryReference): ApiReference {
-  const required = reference.requiredMeasures
-    .split(",")
-    .filter((measure): measure is MeasureType => measureTypes.includes(measure as MeasureType));
-  const expected: CountMap = {
-    quantity: reference.expectedQuantity ?? undefined,
-    volume: reference.expectedVolume ?? undefined,
-    weight: reference.expectedWeight ?? undefined,
-  };
-  const lastCount: CountMap = {
-    quantity: reference.countQuantity ?? undefined,
-    volume: reference.countVolume ?? undefined,
-    weight: reference.countWeight ?? undefined,
-  };
-  const hasLastCount = Object.values(lastCount).some((value) => value !== undefined);
+function createInitialStore(): DemoStore {
   return {
-    id: reference.id,
-    sku: reference.sku,
-    name: reference.name,
-    aller: reference.aller,
-    assignedGroup: reference.assignedGroup,
-    required,
-    expected,
-    unit: measureUnits,
-    status: reference.status as CountStatus,
-    attempt: reference.attempt,
-    lastCount: hasLastCount ? lastCount : undefined,
-    secondGroup: reference.secondGroup ?? undefined,
+    users: seedUsers.map((user) => ({ ...user, passwordHash: hashPassword("align") })),
+    references: seedReferences.map(cloneReference),
+    audit: seedAudit.map((entry, index) => ({ ...entry, id: `AUD-SEED-${index + 1}` })),
+    nextAuditId: seedAudit.length + 1,
   };
 }
 
-export function serializeAudit(entry: AuditEntry): ApiAuditEntry {
-  return {
-    id: entry.id,
-    timestamp: formatTimestamp(entry.timestamp),
-    user: entry.user,
-    action: entry.action,
-    ip: entry.ip,
-    severity: entry.severity as ApiAuditEntry["severity"],
-  };
+function store() {
+  if (!globalThis.alignDemoStore) {
+    globalThis.alignDemoStore = createInitialStore();
+  }
+  return globalThis.alignDemoStore;
 }
 
-export function referenceToDatabaseInput(reference: ApiReference) {
-  return {
-    id: reference.id,
-    sku: reference.sku,
-    name: reference.name,
-    aller: reference.aller,
-    assignedGroup: reference.assignedGroup,
-    requiredMeasures: reference.required.join(","),
-    expectedQuantity: reference.expected.quantity ?? null,
-    expectedVolume: reference.expected.volume ?? null,
-    expectedWeight: reference.expected.weight ?? null,
-    countQuantity: reference.lastCount?.quantity ?? null,
-    countVolume: reference.lastCount?.volume ?? null,
-    countWeight: reference.lastCount?.weight ?? null,
-    status: reference.status,
-    attempt: reference.attempt,
-    secondGroup: reference.secondGroup ?? null,
-  };
-}
-
-export function isMeasureMatch(reference: InventoryReference, count: CountMap) {
-  const required = reference.requiredMeasures
-    .split(",")
-    .filter((measure): measure is MeasureType => measureTypes.includes(measure as MeasureType));
-  const expected: CountMap = {
-    quantity: reference.expectedQuantity ?? undefined,
-    volume: reference.expectedVolume ?? undefined,
-    weight: reference.expectedWeight ?? undefined,
-  };
-  return required.every((measure) => {
-    const expectedValue = expected[measure];
-    const actualValue = count[measure];
-    if (expectedValue === undefined || actualValue === undefined || Number.isNaN(actualValue)) {
-      return false;
-    }
-    return Math.abs(expectedValue - actualValue) <= 0.01;
-  });
+function findReference(referenceId: string) {
+  return store().references.find((reference) => reference.id === referenceId);
 }
 
 export async function ensureSeedData() {
-  const [userCount, referenceCount, auditCount] = await Promise.all([
-    prisma.user.count(),
-    prisma.inventoryReference.count(),
-    prisma.auditEntry.count(),
-  ]);
-
-  if (userCount === 0) {
-    await prisma.user.createMany({
-      data: seedUsers.map((user) => ({
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        groupName: user.group,
-        locked: user.locked,
-        passwordHash: hashPassword("align"),
-      })),
-    });
-  }
-
-  if (referenceCount === 0) {
-    await prisma.inventoryReference.createMany({
-      data: seedReferences.map(referenceToDatabaseInput),
-    });
-  }
-
-  if (auditCount === 0) {
-    await prisma.auditEntry.createMany({
-      data: seedAudit.map((entry) => ({
-        ...entry,
-        timestamp: parseTimestamp(entry.timestamp),
-      })),
-    });
-  }
+  store();
 }
 
 export async function getAppState() {
-  await ensureSeedData();
-  const [users, references, audit] = await Promise.all([
-    prisma.user.findMany({ orderBy: [{ role: "asc" }, { username: "asc" }] }),
-    prisma.inventoryReference.findMany({ orderBy: [{ aller: "asc" }, { id: "asc" }] }),
-    prisma.auditEntry.findMany({ orderBy: { timestamp: "desc" }, take: 150 }),
-  ]);
+  const currentStore = store();
   return {
-    users: users.map(serializeUser),
-    references: references.map(serializeReference),
-    audit: audit.map(serializeAudit),
+    users: currentStore.users.map(serializeUser).sort((a, b) => a.role.localeCompare(b.role) || a.username.localeCompare(b.username)),
+    references: currentStore.references.map(cloneReference).sort((a, b) => a.aller.localeCompare(b.aller) || a.id.localeCompare(b.id)),
+    audit: currentStore.audit.slice(0, 150),
   };
 }
 
 export async function addAudit(user: string, action: string, severity: ApiAuditEntry["severity"], ip: string) {
-  return prisma.auditEntry.create({
-    data: {
-      user,
-      action,
-      severity,
-      ip,
-    },
-  });
+  const currentStore = store();
+  const entry: ApiAuditEntry = {
+    id: `AUD-${currentStore.nextAuditId++}`,
+    timestamp: formatTimestamp(new Date()),
+    user,
+    action,
+    ip,
+    severity,
+  };
+  currentStore.audit.unshift(entry);
+  return entry;
 }
 
 export async function requireActor(username: string | undefined, allowedRoles: Role[]) {
   if (!username) {
     throw new RouteError("Missing actor.", 401);
   }
-  const actor = await prisma.user.findUnique({ where: { username } });
+  const actor = store().users.find((user) => user.username === username);
   if (!actor || actor.locked) {
     throw new RouteError("Actor is missing or locked.", 401);
   }
-  if (!allowedRoles.includes(actor.role as Role)) {
+  if (!allowedRoles.includes(actor.role)) {
     throw new RouteError("Role is not allowed for this action.", 403);
   }
   return actor;
+}
+
+export async function loginUser(username: string, password: string, ip: string) {
+  const user = store().users.find((candidate) => candidate.username === username);
+  if (!user || user.locked || !verifyPassword(password, user.passwordHash)) {
+    throw new RouteError("Invalid credentials or locked user.", 401);
+  }
+  await addAudit(user.username, "Signed in to ALIGN workstation", "info", ip);
+  return serializeUser(user);
 }
 
 export function numericCount(value: unknown) {
@@ -365,6 +300,277 @@ export function numericCount(value: unknown) {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+}
+
+export function isMeasureMatch(reference: ApiReference, count: CountMap) {
+  return reference.required.every((measure) => {
+    const expectedValue = reference.expected[measure];
+    const actualValue = count[measure];
+    if (expectedValue === undefined || actualValue === undefined || Number.isNaN(actualValue)) {
+      return false;
+    }
+    return Math.abs(expectedValue - actualValue) <= 0.01;
+  });
+}
+
+export async function submitReferenceCount(actorName: string | undefined, referenceId: string | undefined, count: CountMap | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["counter", "admin"]);
+  const id = referenceId?.trim();
+  if (!id) {
+    throw new RouteError("Reference is required.", 400);
+  }
+  const reference = findReference(id);
+  if (!reference) {
+    throw new RouteError("Reference not found.", 404);
+  }
+  if (reference.status === "locked") {
+    throw new RouteError("Reference is locked.", 409);
+  }
+  if (actor.role === "counter" && reference.assignedGroup !== actor.group) {
+    throw new RouteError("This reference is assigned to another group.", 403);
+  }
+
+  const submittedCount: CountMap = {
+    quantity: numericCount(count?.quantity),
+    volume: numericCount(count?.volume),
+    weight: numericCount(count?.weight),
+  };
+  const missing = reference.required.some((measure) => submittedCount[measure] === undefined);
+  if (missing) {
+    throw new RouteError("All required count fields must be submitted.", 400);
+  }
+
+  const matched = isMeasureMatch(reference, submittedCount);
+  const nextAttempt = matched ? Math.max(reference.attempt, 1) : reference.attempt + 1;
+  const nextStatus: CountStatus = matched ? "matching" : nextAttempt >= 3 ? "locked" : "discrepancy";
+  reference.lastCount = submittedCount;
+  reference.attempt = nextAttempt;
+  reference.status = nextStatus;
+
+  await addAudit(
+    actor.username,
+    `${reference.id} submitted as ${nextStatus} on attempt ${nextAttempt}`,
+    nextStatus === "matching" ? "info" : "warning",
+    ip,
+  );
+
+  return { status: nextStatus, attempt: nextAttempt };
+}
+
+export async function validateReference(actorName: string | undefined, referenceId: string | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["financier", "admin"]);
+  const id = referenceId?.trim();
+  if (!id) {
+    throw new RouteError("Reference is required.", 400);
+  }
+  const reference = findReference(id);
+  if (!reference) {
+    throw new RouteError("Reference not found.", 404);
+  }
+  reference.status = "validated";
+  await addAudit(actor.username, `${id} validated by finance controller`, "info", ip);
+}
+
+export async function countAgainReference(actorName: string | undefined, referenceId: string | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["financier", "admin"]);
+  const id = referenceId?.trim();
+  if (!id) {
+    throw new RouteError("Reference is required.", 400);
+  }
+  const reference = findReference(id);
+  if (!reference) {
+    throw new RouteError("Reference not found.", 404);
+  }
+  const nextGroup = groupNames.find((group) => group !== reference.assignedGroup) ?? "Group A";
+  reference.assignedGroup = nextGroup;
+  reference.secondGroup = nextGroup;
+  reference.status = "pending";
+  reference.attempt = 0;
+  reference.lastCount = undefined;
+  await addAudit(actor.username, `${id} reassigned to ${nextGroup} for count again`, "warning", ip);
+  return nextGroup;
+}
+
+export async function assignBatch(actorName: string | undefined, aller: string | undefined, group: string | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["financier", "admin"]);
+  const normalizedAller = aller?.trim().toUpperCase();
+  const normalizedGroup = group?.trim();
+  if (!normalizedAller || !normalizedGroup) {
+    throw new RouteError("Aller and assignment group are required.", 400);
+  }
+  if (!/^Group [A-Z]$/.test(normalizedGroup)) {
+    throw new RouteError("Assignment group must be a counter group.", 400);
+  }
+  let updated = 0;
+  for (const reference of store().references) {
+    if (reference.aller === normalizedAller) {
+      reference.assignedGroup = normalizedGroup;
+      updated += 1;
+    }
+  }
+  await addAudit(actor.username, `${normalizedAller} assigned to ${normalizedGroup} by finance`, "info", ip);
+  return updated;
+}
+
+export async function importReferences(actorName: string | undefined, references: ApiReference[], fileName: string | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["financier", "admin"]);
+  if (!references.length) {
+    throw new RouteError("No SAP rows were provided.", 400);
+  }
+
+  let imported = 0;
+  for (const reference of references) {
+    const id = reference.id?.trim().toUpperCase();
+    if (!id) {
+      continue;
+    }
+    const required = reference.required.filter((measure) => measureTypes.includes(measure));
+    const current = findReference(id);
+    const nextReference: ApiReference = {
+      id,
+      sku: reference.sku?.trim() || id,
+      name: reference.name?.trim() || "SAP Material",
+      aller: reference.aller?.trim().toUpperCase() || "ALLER-IMPORT",
+      assignedGroup: reference.assignedGroup?.trim() || "Group A",
+      required: required.length ? required : ["quantity"],
+      expected: { ...reference.expected },
+      unit: measureUnits,
+      status: current?.status ?? "pending",
+      attempt: current?.attempt ?? 0,
+      lastCount: current?.lastCount ? { ...current.lastCount } : undefined,
+      secondGroup: current?.secondGroup,
+    };
+    if (current) {
+      Object.assign(current, nextReference);
+    } else {
+      store().references.push(nextReference);
+    }
+    imported += 1;
+  }
+
+  await addAudit(actor.username, `Imported SAP file ${fileName ?? "upload"} with ${imported} rows`, "info", ip);
+  return imported;
+}
+
+export async function addUser(
+  actorName: string | undefined,
+  user: { username?: string; fullName?: string; role?: Role; group?: string } | undefined,
+  ip: string,
+) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const username = user?.username?.trim().toLowerCase();
+  const fullName = user?.fullName?.trim();
+  if (!username || !fullName) {
+    throw new RouteError("Username and full name are required.", 400);
+  }
+  if (store().users.some((item) => item.username === username)) {
+    throw new RouteError("Username already exists.", 409);
+  }
+  store().users.push({
+    username,
+    fullName,
+    role: user?.role ?? "counter",
+    group: user?.group ?? "Group A",
+    locked: false,
+    passwordHash: hashPassword("align"),
+  });
+  await addAudit(actor.username, `Added user ${username}`, "info", ip);
+}
+
+export async function updateUser(
+  actorName: string | undefined,
+  username: string | undefined,
+  updates: { role?: Role; group?: string; locked?: boolean } | undefined,
+  ip: string,
+) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const normalizedUsername = username?.trim().toLowerCase();
+  if (!normalizedUsername) {
+    throw new RouteError("Username is required.", 400);
+  }
+  const user = store().users.find((candidate) => candidate.username === normalizedUsername);
+  if (!user) {
+    throw new RouteError("User not found.", 404);
+  }
+  if (updates?.role) user.role = updates.role;
+  if (updates?.group) user.group = updates.group;
+  if (typeof updates?.locked === "boolean") user.locked = updates.locked;
+  await addAudit(actor.username, `Updated user ${normalizedUsername}`, "info", ip);
+}
+
+export async function addReference(actorName: string | undefined, reference: ApiReference | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const id = reference?.id?.trim().toUpperCase();
+  if (!reference || !id || !reference.name?.trim()) {
+    throw new RouteError("Reference and name are required.", 400);
+  }
+  if (findReference(id)) {
+    throw new RouteError("Reference already exists.", 409);
+  }
+  const required = reference.required.filter((measure) => measureTypes.includes(measure));
+  if (!required.length) {
+    throw new RouteError("At least one measure is required.", 400);
+  }
+  store().references.push({
+    id,
+    sku: reference.sku?.trim() || id,
+    name: reference.name.trim(),
+    aller: reference.aller?.trim().toUpperCase() || "ALLER-01",
+    assignedGroup: reference.assignedGroup || "Group A",
+    required,
+    expected: { ...reference.expected },
+    unit: measureUnits,
+    status: "pending",
+    attempt: 0,
+  });
+  await addAudit(actor.username, `Added reference ${id}`, "info", ip);
+}
+
+export async function updateReference(
+  actorName: string | undefined,
+  referenceId: string | undefined,
+  updates: { status?: string; attempt?: number } | undefined,
+  ip: string,
+) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const id = referenceId?.trim().toUpperCase();
+  if (!id) {
+    throw new RouteError("Reference ID is required.", 400);
+  }
+  const reference = findReference(id);
+  if (!reference) {
+    throw new RouteError("Reference not found.", 404);
+  }
+
+  let changed = false;
+  const allowedStatuses: CountStatus[] = ["pending", "matching", "discrepancy", "locked", "validated"];
+  if (updates?.status && allowedStatuses.includes(updates.status as CountStatus)) {
+    reference.status = updates.status as CountStatus;
+    if (reference.status === "pending") {
+      reference.secondGroup = undefined;
+    }
+    changed = true;
+  }
+  if (typeof updates?.attempt === "number") {
+    reference.attempt = Math.max(0, Math.min(3, Math.trunc(updates.attempt)));
+    changed = true;
+  }
+  if (!changed) {
+    throw new RouteError("No reference updates were provided.", 400);
+  }
+
+  await addAudit(actor.username, `Updated reference ${id} from admin override`, "warning", ip);
+}
+
+export async function resetDay(actorName: string | undefined, ip: string) {
+  const actor = await requireActor(actorName, ["admin"]);
+  for (const reference of store().references) {
+    reference.status = "pending";
+    reference.attempt = 0;
+    reference.lastCount = undefined;
+    reference.secondGroup = undefined;
+  }
+  await addAudit(actor.username, "Day reset completed and temporary locks cleared", "critical", ip);
 }
 
 export function jsonError(message: string, status = 400) {

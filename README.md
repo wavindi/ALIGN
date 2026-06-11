@@ -1,35 +1,47 @@
 # ALIGN Operational Suite
 
-ALIGN is a local-server inventory counting and reconciliation app. This development setup runs the web app and database on this PC, while other PCs on the same network can connect through this PC's IP address.
+ALIGN is an inventory counting and reconciliation web app for PC workstations. The `main` branch is a no-database demo/deployment build that runs on Vercel or a local Linux server without SQLite, Prisma, or any `DATABASE_URL`.
 
-## Local Database
+Data is stored in server memory for the active runtime only. That keeps deployment simple for demos, but changes reset when the Vercel function or local server restarts. Use branch `V1` when you want the local SQLite database version.
 
-The app currently uses SQLite through Prisma.
+## Default Users
 
-- Database file: `dev.db`
-- Connection string: `.env`
-- Starter password for seeded users: `align`
-
-Seeded users:
+All starter users use the password `align`.
 
 - `counter`
 - `finance`
 - `admin`
 
-The first `/api/state` request seeds the starter data if the database is empty.
-
-## First-Time Setup
+## First-Time Local Setup
 
 ```powershell
 npm install
-npm run db:generate
-npm run db:push
+npm run build
+npm start
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000
+```
+
+## Vercel Deployment
+
+This branch does not need environment variables or a database.
+
+1. Import `https://github.com/wavindi/ALIGN.git` in Vercel.
+2. Select branch `main`.
+3. Keep the default Next.js settings.
+4. Build command:
+
+```bash
 npm run build
 ```
 
 ## Linux Server Setup
 
-On the Linux server, clone the repo and run the setup file:
+On a Linux server:
 
 ```bash
 git clone https://github.com/wavindi/ALIGN.git
@@ -38,7 +50,7 @@ chmod +x setup
 ./setup
 ```
 
-The setup file installs Linux build tools, installs a compatible Node.js version on Debian/Ubuntu if needed, installs npm dependencies, creates `.env`, prepares the SQLite database, builds the app, and starts ALIGN on:
+The setup file installs prerequisites, installs a compatible Node.js version on Debian/Ubuntu if needed, installs npm dependencies, builds the app, and starts ALIGN on:
 
 ```text
 http://SERVER-IP:3000
@@ -58,8 +70,6 @@ sudo systemctl status align
 sudo journalctl -u align -f
 ```
 
-Default login users are `counter`, `finance`, and `admin`. The default password is `align`.
-
 ## Run For LAN Testing
 
 For development testing with other PCs:
@@ -73,12 +83,6 @@ For production-style local testing:
 ```powershell
 npm run build
 npm start
-```
-
-The local machine can open:
-
-```text
-http://127.0.0.1:3000
 ```
 
 Other users on the same network should open:
@@ -99,26 +103,11 @@ If Windows Firewall blocks access, run PowerShell as Administrator:
 New-NetFirewallRule -DisplayName "ALIGN Local Server 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
 ```
 
-## Useful Database Commands
-
-Reset the local database:
-
-```powershell
-npm run db:reset
-```
-
-Open Prisma Studio:
-
-```powershell
-npm run db:studio
-```
-
 ## Current Architecture
 
 - Next.js App Router UI
 - API routes for login, counts, finance actions, admin actions, and audit logging
-- Prisma ORM
-- SQLite local database
+- In-memory runtime store for no-database deployment
 - XLSX import/export support
 
-When the workflow is approved, the next deployment upgrade is PostgreSQL on the final local server.
+For persistent production data, use the `V1` branch as the local SQLite reference or upgrade `main` to hosted PostgreSQL.

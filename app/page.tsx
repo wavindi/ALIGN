@@ -327,45 +327,381 @@ type AppState = {
   audit: AuditEntry[];
 };
 
-async function readApiError(response: Response) {
+const demoStateKey = "align-operational-suite-demo-state-v1";
+let volatileDemoState: AppState | undefined;
+
+function cloneState(state: AppState): AppState {
+  return {
+    users: state.users.map((user) => ({ ...user })),
+    references: state.references.map(cloneReference),
+    audit: state.audit.map((entry) => ({ ...entry })),
+  };
+}
+
+function createDemoState(): AppState {
+  return cloneState({
+    users: initialUsers,
+    references: initialReferences,
+    audit: initialAudit,
+  });
+}
+
+function getDemoStorage() {
   try {
-    const body = (await response.json()) as { error?: string };
-    return body.error ?? `Request failed with status ${response.status}.`;
+    return typeof window !== "undefined" && window.localStorage ? window.localStorage : null;
   } catch {
-    return `Request failed with status ${response.status}.`;
+    return null;
   }
 }
 
-async function apiGetState() {
-  const response = await fetch("/api/state", { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(await readApiError(response));
+function readDemoState() {
+  if (typeof window === "undefined") {
+    return createDemoState();
   }
-  return (await response.json()) as AppState;
+
+  const storage = getDemoStorage();
+  if (!storage) {
+    volatileDemoState = volatileDemoState ?? createDemoState();
+    return cloneState(volatileDemoState);
+  }
+
+  const rawState = storage.getItem(demoStateKey);
+  if (rawState) {
+    try {
+      const parsed = JSON.parse(rawState) as AppState;
+      if (Array.isArray(parsed.users) && Array.isArray(parsed.references) && Array.isArray(parsed.audit)) {
+        return cloneState(parsed);
+      }
+    } catch {
+      storage.removeItem(demoStateKey);
+    }
+  }
+
+  const state = createDemoState();
+  writeDemoState(state);
+  return state;
+}
+
+function writeDemoState(state: AppState) {
+  const nextState = cloneState(state);
+  const storage = getDemoStorage();
+  if (storage) {
+    storage.setItem(demoStateKey, JSON.stringify(nextState));
+  } else {
+    volatileDemoState = nextState;
+  }
+  return nextState;
+}
+
+function addDemoAudit(
+  state: AppState,
+  user: string,
+  action: string,
+  severity: AuditEntry["severity"] = "info",
+  ip = "local",
+) {
+  state.audit.unshift({
+    id: `AUD-${Date.now()}-${state.audit.length}`,
+    timestamp: getTimestamp(),
+    user,
+    action,
+    ip,
+    severity,
+  });
+}
+
+function requireDemoActor(state: AppState, username: string | undefined, roles: Role[]) {
+  if (!username) {
+    throw new Error("Missing actor.");
+  }
+  const actor = state.users.find((user) => user.username === username);
+  if (!actor || actor.locked) {
+    throw new Error("Actor is missing or locked.");
+  }
+  if (!roles.includes(actor.role)) {
+    throw new Error("Role is not allowed for this action.");
+  }
+  return actor;
+}
+
+function requireDemoReference(state: AppState, referenceId: string | undefined) {
+  const id = referenceId?.trim().toUpperCase();
+  if (!id) {
+    throw new Error("Reference is required.");
+  }
+  const reference = state.references.find((item) => item.id === id);
+  if (!reference) {
+    throw new Error("Reference not found.");
+  }
+  return reference;
+}
+
+function apiGetState() {
+  return Promise.resolve(readDemoState());
 }
 
 async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(await readApiError(response));
+  const state = readDemoState();
+  const request = body as Record<string, unknown>;
+
+  if (url === "/api/login") {
+    const username = String(request.username ?? "").trim().toLowerCase();
+    const password = String(request.password ?? "");
+    const user = state.users.find((candidate) => candidate.username === username);
+    if (!user || user.locked || password !== "align") {
+      throw new Error("Invalid credentials or locked user.");
+    }
+    addDemoAudit(state, user.username, "Signed in to ALIGN workstation");
+    writeDemoState(state);
+    return { user } as TResponse;
   }
-  return (await response.json()) as TResponse;
+
+  if (url === "/api/audit") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["counter", "financier", "admin"]);
+    const action = String(request.action ?? "").trim();
+    if (!action) {
+      throw new Error("Audit action is required.");
+    }
+    addDemoAudit(state, actor.username, action, (request.severity as AuditEntry["severity"]) ?? "info");
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  if (url === "/api/counts") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["counter", "admin"]);
+    const reference = requireDemoReference(state, request.referenceId as string | undefined);
+    if (reference.status === "locked") {
+      throw new Error("Reference is locked.");
+    }
+    if (actor.role === "counter" && reference.assignedGroup !== actor.group) {
+      throw new Error("This reference is assigned to another group.");
+    }
+    const rawCount = (request.count ?? {}) as CountMap;
+    const submittedCount: CountMap = {
+      quantity: toNumber(rawCount.quantity),
+      volume: toNumber(rawCount.volume),
+      weight: toNumber(rawCount.weight),
+    };
+    const missing = reference.required.some((measure) => submittedCount[measure] === undefined);
+    if (missing) {
+      throw new Error("All required count fields must be submitted.");
+    }
+    const matched = isMeasureMatch(reference, submittedCount);
+    const nextAttempt = matched ? Math.max(reference.attempt, 1) : reference.attempt + 1;
+    const nextStatus: CountStatus = matched ? "matching" : nextAttempt >= 3 ? "locked" : "discrepancy";
+    reference.lastCount = submittedCount;
+    reference.attempt = nextAttempt;
+    reference.status = nextStatus;
+    addDemoAudit(
+      state,
+      actor.username,
+      `${reference.id} submitted as ${nextStatus} on attempt ${nextAttempt}`,
+      nextStatus === "matching" ? "info" : "warning",
+    );
+    writeDemoState(state);
+    return { ok: true, status: nextStatus, attempt: nextAttempt } as TResponse;
+  }
+
+  if (url === "/api/finance/validate") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["financier", "admin"]);
+    const reference = requireDemoReference(state, request.referenceId as string | undefined);
+    reference.status = "validated";
+    addDemoAudit(state, actor.username, `${reference.id} validated by finance controller`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  if (url === "/api/finance/count-again") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["financier", "admin"]);
+    const reference = requireDemoReference(state, request.referenceId as string | undefined);
+    const nextGroup = ["Group A", "Group B", "Group C"].find((group) => group !== reference.assignedGroup) ?? "Group A";
+    reference.assignedGroup = nextGroup;
+    reference.secondGroup = nextGroup;
+    reference.status = "pending";
+    reference.attempt = 0;
+    reference.lastCount = undefined;
+    addDemoAudit(state, actor.username, `${reference.id} reassigned to ${nextGroup} for count again`, "warning");
+    writeDemoState(state);
+    return { ok: true, nextGroup } as TResponse;
+  }
+
+  if (url === "/api/finance/assign-batch") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["financier", "admin"]);
+    const aller = String(request.aller ?? "").trim().toUpperCase();
+    const group = String(request.group ?? "").trim();
+    if (!aller || !group) {
+      throw new Error("Aller and assignment group are required.");
+    }
+    if (!/^Group [A-Z]$/.test(group)) {
+      throw new Error("Assignment group must be a counter group.");
+    }
+    let updated = 0;
+    state.references.forEach((reference) => {
+      if (reference.aller === aller) {
+        reference.assignedGroup = group;
+        updated += 1;
+      }
+    });
+    addDemoAudit(state, actor.username, `${aller} assigned to ${group} by finance`);
+    writeDemoState(state);
+    return { ok: true, updated } as TResponse;
+  }
+
+  if (url === "/api/references/import") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["financier", "admin"]);
+    const uploadedReferences = Array.isArray(request.references) ? (request.references as InventoryReference[]) : [];
+    if (!uploadedReferences.length) {
+      throw new Error("No SAP rows were provided.");
+    }
+    let imported = 0;
+    uploadedReferences.forEach((reference) => {
+      const id = reference.id?.trim().toUpperCase();
+      if (!id) {
+        return;
+      }
+      const required = reference.required.filter((measure) => measureLabels[measure]);
+      const existing = state.references.find((item) => item.id === id);
+      const nextReference: InventoryReference = {
+        id,
+        sku: reference.sku?.trim() || id,
+        name: reference.name?.trim() || "SAP Material",
+        aller: reference.aller?.trim().toUpperCase() || "ALLER-IMPORT",
+        assignedGroup: reference.assignedGroup?.trim() || "Group A",
+        required: required.length ? required : ["quantity"],
+        expected: { ...reference.expected },
+        unit: measureUnits,
+        status: existing?.status ?? "pending",
+        attempt: existing?.attempt ?? 0,
+        lastCount: existing?.lastCount ? { ...existing.lastCount } : undefined,
+        secondGroup: existing?.secondGroup,
+      };
+      if (existing) {
+        Object.assign(existing, nextReference);
+      } else {
+        state.references.push(nextReference);
+      }
+      imported += 1;
+    });
+    addDemoAudit(state, actor.username, `Imported SAP file ${String(request.fileName ?? "upload")} with ${imported} rows`);
+    writeDemoState(state);
+    return { ok: true, imported } as TResponse;
+  }
+
+  if (url === "/api/admin/users") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const user = (request.user ?? {}) as Partial<OperatorUser>;
+    const username = user.username?.trim().toLowerCase();
+    const fullName = user.fullName?.trim();
+    if (!username || !fullName) {
+      throw new Error("Username and full name are required.");
+    }
+    if (state.users.some((item) => item.username === username)) {
+      throw new Error("Username already exists.");
+    }
+    state.users.push({
+      username,
+      fullName,
+      role: user.role ?? "counter",
+      group: user.group ?? "Group A",
+      locked: false,
+    });
+    addDemoAudit(state, actor.username, `Added user ${username}`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  if (url === "/api/admin/references") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const reference = request.reference as InventoryReference | undefined;
+    const id = reference?.id?.trim().toUpperCase();
+    if (!reference || !id || !reference.name?.trim()) {
+      throw new Error("Reference and name are required.");
+    }
+    if (state.references.some((item) => item.id === id)) {
+      throw new Error("Reference already exists.");
+    }
+    const required = reference.required.filter((measure) => measureLabels[measure]);
+    if (!required.length) {
+      throw new Error("At least one measure is required.");
+    }
+    state.references.push({
+      id,
+      sku: reference.sku?.trim() || id,
+      name: reference.name.trim(),
+      aller: reference.aller?.trim().toUpperCase() || "ALLER-01",
+      assignedGroup: reference.assignedGroup || "Group A",
+      required,
+      expected: { ...reference.expected },
+      unit: measureUnits,
+      status: "pending",
+      attempt: 0,
+    });
+    addDemoAudit(state, actor.username, `Added reference ${id}`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  if (url === "/api/admin/day-reset") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    state.references.forEach((reference) => {
+      reference.status = "pending";
+      reference.attempt = 0;
+      reference.lastCount = undefined;
+      reference.secondGroup = undefined;
+    });
+    addDemoAudit(state, actor.username, "Day reset completed and temporary locks cleared", "critical");
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  throw new Error(`Unsupported demo action: ${url}`);
 }
 
 async function apiPatch<TResponse = { ok: boolean }>(url: string, body: unknown) {
-  const response = await fetch(url, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(await readApiError(response));
+  const state = readDemoState();
+  const request = body as Record<string, unknown>;
+
+  if (url === "/api/admin/users") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const username = String(request.username ?? "").trim().toLowerCase();
+    const updates = (request.updates ?? {}) as Partial<OperatorUser>;
+    const user = state.users.find((item) => item.username === username);
+    if (!user) {
+      throw new Error("User not found.");
+    }
+    if (updates.role) user.role = updates.role;
+    if (updates.group) user.group = updates.group;
+    if (typeof updates.locked === "boolean") user.locked = updates.locked;
+    addDemoAudit(state, actor.username, `Updated user ${username}`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
   }
-  return (await response.json()) as TResponse;
+
+  if (url === "/api/admin/references") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const reference = requireDemoReference(state, request.referenceId as string | undefined);
+    const updates = (request.updates ?? {}) as { status?: CountStatus; attempt?: number };
+    let changed = false;
+    if (updates.status && statusStyles[updates.status]) {
+      reference.status = updates.status;
+      if (updates.status === "pending") {
+        reference.secondGroup = undefined;
+      }
+      changed = true;
+    }
+    if (typeof updates.attempt === "number") {
+      reference.attempt = Math.max(0, Math.min(3, Math.trunc(updates.attempt)));
+      changed = true;
+    }
+    if (!changed) {
+      throw new Error("No reference updates were provided.");
+    }
+    addDemoAudit(state, actor.username, `Updated reference ${reference.id} from admin override`, "warning");
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  throw new Error(`Unsupported demo action: ${url}`);
 }
 
 export default function AlignOperationalSuite() {
@@ -396,7 +732,7 @@ export default function AlignOperationalSuite() {
       })
       .catch((error) => {
         if (!cancelled) {
-          setAppError(error instanceof Error ? error.message : "Unable to connect to local database.");
+          setAppError(error instanceof Error ? error.message : "Unable to load demo state.");
         }
       })
       .finally(() => {
@@ -450,7 +786,7 @@ export default function AlignOperationalSuite() {
   };
 
   if (!currentUser) {
-    return <LoginScreen users={users} onLogin={handleLogin} loading={loading} databaseError={appError} />;
+    return <LoginScreen users={users} onLogin={handleLogin} loading={loading} appError={appError} />;
   }
 
   const metricCounts = references.reduce(
@@ -606,12 +942,12 @@ function LoginScreen({
   users,
   onLogin,
   loading,
-  databaseError,
+  appError,
 }: {
   users: OperatorUser[];
   onLogin: (username: string, password: string) => Promise<void>;
   loading: boolean;
-  databaseError: string;
+  appError: string;
 }) {
   const [username, setUsername] = useState("counter");
   const [password, setPassword] = useState("align");
@@ -716,9 +1052,9 @@ function LoginScreen({
           {error ? (
             <p className="mb-4 rounded border border-red-500/60 bg-red-950 px-3 py-2 text-sm text-red-100">{error}</p>
           ) : null}
-          {databaseError ? (
+          {appError ? (
             <p className="mb-4 rounded border border-amber-500/60 bg-amber-950 px-3 py-2 text-sm text-amber-100">
-              {databaseError}
+              {appError}
             </p>
           ) : null}
 
@@ -3020,7 +3356,7 @@ function AdminInterface({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [processLocked, setProcessLocked] = useState(references.some((item) => item.status === "locked"));
   const [auditQuery, setAuditQuery] = useState("");
-  const [adminNotice, setAdminNotice] = useState("System state synced with local database.");
+  const [adminNotice, setAdminNotice] = useState("System state synced with in-memory runtime.");
   const [newReference, setNewReference] = useState({
     id: "",
     sku: "",
