@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-APP_NAME="ALIGN Operational Suite"
+APP_NAME="Cyncro Operational Suite"
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-3000}"
@@ -15,7 +15,7 @@ Usage: ./setup [options]
 Installs and starts ${APP_NAME} on a Linux server without requiring a database.
 
 Options:
-  --service       Install and start ALIGN as a systemd service.
+  --service       Install and start Cyncro as a systemd service.
   --no-start      Install and build without starting.
   --help          Show this help.
 
@@ -31,11 +31,11 @@ USAGE
 }
 
 log() {
-  printf '\n[%s] %s\n' "ALIGN" "$*"
+  printf '\n[%s] %s\n' "Cyncro" "$*"
 }
 
 fail() {
-  printf '\n[ALIGN] ERROR: %s\n' "$*" >&2
+  printf '\n[Cyncro] ERROR: %s\n' "$*" >&2
   exit 1
 }
 
@@ -129,7 +129,7 @@ print_urls() {
   local ip
   ip="$(local_ip || true)"
 
-  log "ALIGN is running"
+  log "Cyncro is running"
   printf 'Local URL:   http://127.0.0.1:%s\n' "$PORT"
   if [ -n "$ip" ]; then
     printf 'Network URL: http://%s:%s\n' "$ip" "$PORT"
@@ -148,7 +148,7 @@ open_browser_if_possible() {
 
 start_foreground() {
   cd "$APP_DIR"
-  log "Starting ALIGN on ${HOST}:${PORT}"
+  log "Starting Cyncro on ${HOST}:${PORT}"
   npx next start -H "$HOST" -p "$PORT" &
   local server_pid=$!
 
@@ -174,7 +174,7 @@ install_service() {
   log "Installing systemd service"
   sudo_cmd tee /etc/systemd/system/align.service >/dev/null <<SERVICE
 [Unit]
-Description=ALIGN Operational Suite
+Description=Cyncro Operational Suite
 After=network.target
 
 [Service]

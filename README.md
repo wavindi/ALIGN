@@ -1,6 +1,6 @@
-# ALIGN Operational Suite
+# Cyncro Operational Suite
 
-ALIGN is an inventory counting and reconciliation web app for PC workstations. The `main` branch is a no-database demo/deployment build that runs on Vercel or a local Linux server without SQLite, Prisma, or any `DATABASE_URL`.
+Cyncro is an inventory counting and reconciliation web app for PC workstations. The `main` branch is a no-database demo/deployment build that runs on Vercel or a local Linux server without SQLite, Prisma, or any `DATABASE_URL`.
 
 Data is stored in server memory for the active runtime only. That keeps deployment simple for demos, but changes reset when the Vercel function or local server restarts. Use branch `V1` when you want the local SQLite database version.
 
@@ -30,7 +30,7 @@ http://127.0.0.1:3000
 
 This branch does not need environment variables or a database.
 
-1. Import `https://github.com/wavindi/ALIGN.git` in Vercel.
+1. Import `https://github.com/wavindi/Cyncro.git` in Vercel.
 2. Select branch `main`.
 3. Keep the default Next.js settings.
 4. Build command:
@@ -44,13 +44,13 @@ npm run build
 On a Linux server:
 
 ```bash
-git clone https://github.com/wavindi/ALIGN.git
-cd ALIGN
+git clone https://github.com/wavindi/Cyncro.git
+cd Cyncro
 chmod +x setup
 ./setup
 ```
 
-The setup file installs prerequisites, installs a compatible Node.js version on Debian/Ubuntu if needed, installs npm dependencies, builds the app, and starts ALIGN on:
+The setup file installs prerequisites, installs a compatible Node.js version on Debian/Ubuntu if needed, installs npm dependencies, builds the app, and starts Cyncro on:
 
 ```text
 http://SERVER-IP:3000
@@ -100,7 +100,7 @@ ipconfig
 If Windows Firewall blocks access, run PowerShell as Administrator:
 
 ```powershell
-New-NetFirewallRule -DisplayName "ALIGN Local Server 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
+New-NetFirewallRule -DisplayName "Cyncro Local Server 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow
 ```
 
 ## Current Architecture

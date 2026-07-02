@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ALIGN Operational Suite",
+  title: "Cyncro Operational Suite",
   description: "Inventory day stock counting and reconciliation suite.",
 };
 

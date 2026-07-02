@@ -25,6 +25,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  UserCog,
   UserPlus,
   Users,
   Warehouse,
@@ -63,6 +64,12 @@ type OperatorUser = {
   locked: boolean;
 };
 
+type CounterGroup = {
+  name: string;
+  description: string;
+  active: boolean;
+};
+
 type AuditEntry = {
   id: string;
   timestamp: string;
@@ -72,7 +79,22 @@ type AuditEntry = {
   severity: "info" | "warning" | "critical";
 };
 
-const groupNames = ["Group A", "Group B", "Group C", "Supervisor"];
+const initialGroups: CounterGroup[] = [
+  { name: "Group A", description: "Primary aisle counting team", active: true },
+  { name: "Group B", description: "Secondary warehouse team", active: true },
+  { name: "Group C", description: "Overflow and recount team", active: true },
+  { name: "Supervisor", description: "Administrative supervision", active: true },
+  { name: "Control Room", description: "Finance and reconciliation desk", active: true },
+];
+
+function activeGroupNames(groups: CounterGroup[]) {
+  return groups.filter((group) => group.active).map((group) => group.name);
+}
+
+function counterGroupNames(groups: CounterGroup[]) {
+  return activeGroupNames(groups).filter((group) => group.startsWith("Group"));
+}
+
 const roleLabels: Record<Role, string> = {
   counter: "Counter",
   financier: "Financier",
@@ -172,7 +194,7 @@ const initialReferences: InventoryReference[] = [
 const initialUsers: OperatorUser[] = [
   { username: "counter", fullName: "Maya Counter", role: "counter", group: "Group A", locked: false },
   { username: "finance", fullName: "Jonas Controller", role: "financier", group: "Control Room", locked: false },
-  { username: "admin", fullName: "ALIGN Admin", role: "admin", group: "Supervisor", locked: false },
+  { username: "admin", fullName: "Cyncro Admin", role: "admin", group: "Supervisor", locked: false },
 ];
 
 const initialAudit: AuditEntry[] = [
@@ -325,9 +347,10 @@ type AppState = {
   users: OperatorUser[];
   references: InventoryReference[];
   audit: AuditEntry[];
+  groups: CounterGroup[];
 };
 
-const demoStateKey = "align-operational-suite-demo-state-v1";
+const demoStateKey = "cyncro-operational-suite-demo-state-v1";
 let volatileDemoState: AppState | undefined;
 
 function cloneState(state: AppState): AppState {
@@ -335,6 +358,7 @@ function cloneState(state: AppState): AppState {
     users: state.users.map((user) => ({ ...user })),
     references: state.references.map(cloneReference),
     audit: state.audit.map((entry) => ({ ...entry })),
+    groups: state.groups.map((group) => ({ ...group })),
   };
 }
 
@@ -343,6 +367,7 @@ function createDemoState(): AppState {
     users: initialUsers,
     references: initialReferences,
     audit: initialAudit,
+    groups: initialGroups,
   });
 }
 
@@ -370,7 +395,10 @@ function readDemoState() {
     try {
       const parsed = JSON.parse(rawState) as AppState;
       if (Array.isArray(parsed.users) && Array.isArray(parsed.references) && Array.isArray(parsed.audit)) {
-        return cloneState(parsed);
+        return cloneState({
+          ...parsed,
+          groups: Array.isArray(parsed.groups) ? parsed.groups : initialGroups,
+        });
       }
     } catch {
       storage.removeItem(demoStateKey);
@@ -451,7 +479,7 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
     if (!user || user.locked || password !== "align") {
       throw new Error("Invalid credentials or locked user.");
     }
-    addDemoAudit(state, user.username, "Signed in to ALIGN workstation");
+    addDemoAudit(state, user.username, "Signed in to Cyncro workstation");
     writeDemoState(state);
     return { user } as TResponse;
   }
@@ -514,7 +542,7 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
   if (url === "/api/finance/count-again") {
     const actor = requireDemoActor(state, request.actor as string | undefined, ["financier", "admin"]);
     const reference = requireDemoReference(state, request.referenceId as string | undefined);
-    const nextGroup = ["Group A", "Group B", "Group C"].find((group) => group !== reference.assignedGroup) ?? "Group A";
+    const nextGroup = counterGroupNames(state.groups).find((group) => group !== reference.assignedGroup) ?? "Group A";
     reference.assignedGroup = nextGroup;
     reference.secondGroup = nextGroup;
     reference.status = "pending";
@@ -532,7 +560,7 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
     if (!aller || !group) {
       throw new Error("Aller and assignment group are required.");
     }
-    if (!/^Group [A-Z]$/.test(group)) {
+    if (!counterGroupNames(state.groups).includes(group)) {
       throw new Error("Assignment group must be a counter group.");
     }
     let updated = 0;
@@ -566,7 +594,9 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
         sku: reference.sku?.trim() || id,
         name: reference.name?.trim() || "SAP Material",
         aller: reference.aller?.trim().toUpperCase() || "ALLER-IMPORT",
-        assignedGroup: reference.assignedGroup?.trim() || "Group A",
+        assignedGroup: counterGroupNames(state.groups).includes(reference.assignedGroup?.trim() ?? "")
+          ? reference.assignedGroup.trim()
+          : "Group A",
         required: required.length ? required : ["quantity"],
         expected: { ...reference.expected },
         unit: measureUnits,
@@ -610,6 +640,26 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
     return { ok: true } as TResponse;
   }
 
+  if (url === "/api/admin/groups") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const group = (request.group ?? {}) as Partial<CounterGroup>;
+    const name = group.name?.trim();
+    if (!name) {
+      throw new Error("Group name is required.");
+    }
+    if (state.groups.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
+      throw new Error("Group already exists.");
+    }
+    state.groups.push({
+      name,
+      description: group.description?.trim() || "Operational counter group",
+      active: group.active ?? true,
+    });
+    addDemoAudit(state, actor.username, `Added operational group ${name}`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
   if (url === "/api/admin/references") {
     const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
     const reference = request.reference as InventoryReference | undefined;
@@ -629,7 +679,7 @@ async function apiPost<TResponse = { ok: boolean }>(url: string, body: unknown) 
       sku: reference.sku?.trim() || id,
       name: reference.name.trim(),
       aller: reference.aller?.trim().toUpperCase() || "ALLER-01",
-      assignedGroup: reference.assignedGroup || "Group A",
+      assignedGroup: counterGroupNames(state.groups).includes(reference.assignedGroup) ? reference.assignedGroup : "Group A",
       required,
       expected: { ...reference.expected },
       unit: measureUnits,
@@ -669,10 +719,41 @@ async function apiPatch<TResponse = { ok: boolean }>(url: string, body: unknown)
     if (!user) {
       throw new Error("User not found.");
     }
+    if (updates.fullName !== undefined) {
+      const fullName = updates.fullName.trim();
+      if (!fullName) {
+        throw new Error("Full name is required.");
+      }
+      user.fullName = fullName;
+    }
     if (updates.role) user.role = updates.role;
-    if (updates.group) user.group = updates.group;
+    if (updates.group) {
+      if (!activeGroupNames(state.groups).includes(updates.group)) {
+        throw new Error("User group is not active.");
+      }
+      user.group = updates.group;
+    }
     if (typeof updates.locked === "boolean") user.locked = updates.locked;
     addDemoAudit(state, actor.username, `Updated user ${username}`);
+    writeDemoState(state);
+    return { ok: true } as TResponse;
+  }
+
+  if (url === "/api/admin/groups") {
+    const actor = requireDemoActor(state, request.actor as string | undefined, ["admin"]);
+    const name = String(request.name ?? "").trim();
+    const updates = (request.updates ?? {}) as Partial<CounterGroup>;
+    const group = state.groups.find((item) => item.name === name);
+    if (!group) {
+      throw new Error("Group not found.");
+    }
+    if (updates.description !== undefined) {
+      group.description = updates.description.trim() || "Operational counter group";
+    }
+    if (typeof updates.active === "boolean") {
+      group.active = updates.active;
+    }
+    addDemoAudit(state, actor.username, `Updated operational group ${name}`);
     writeDemoState(state);
     return { ok: true } as TResponse;
   }
@@ -704,10 +785,11 @@ async function apiPatch<TResponse = { ok: boolean }>(url: string, body: unknown)
   throw new Error(`Unsupported demo action: ${url}`);
 }
 
-export default function AlignOperationalSuite() {
+export default function CyncroOperationalSuite() {
   const [references, setReferences] = useState<InventoryReference[]>([]);
   const [users, setUsers] = useState<OperatorUser[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
+  const [groups, setGroups] = useState<CounterGroup[]>(initialGroups);
   const [currentUser, setCurrentUser] = useState<OperatorUser | null>(null);
   const [activeInterface, setActiveInterface] = useState<Role>("counter");
   const [interfaceMenuOpen, setInterfaceMenuOpen] = useState(false);
@@ -719,6 +801,7 @@ export default function AlignOperationalSuite() {
     setReferences(state.references.map(cloneReference));
     setUsers(state.users);
     setAudit(state.audit);
+    setGroups(state.groups);
     return state;
   }, []);
 
@@ -809,7 +892,7 @@ export default function AlignOperationalSuite() {
   };
 
   const handleLogout = () => {
-    appendAudit(currentUser.username, "Signed out of ALIGN workstation");
+    appendAudit(currentUser.username, "Signed out of Cyncro workstation");
     setInterfaceMenuOpen(false);
     setActiveInterface("counter");
     setCurrentUser(null);
@@ -820,6 +903,7 @@ export default function AlignOperationalSuite() {
       <main className="min-h-screen bg-[#051424] text-slate-100">
         <CounterInterface
           references={references}
+          groups={groups}
           currentUser={currentUser}
           appendAudit={appendAudit}
           onRefresh={refreshState}
@@ -834,6 +918,7 @@ export default function AlignOperationalSuite() {
       <main className="min-h-screen bg-[#07111e] text-slate-50">
         <FinancierInterface
           references={references}
+          groups={groups}
           audit={audit}
           currentUser={currentUser}
           appendAudit={appendAudit}
@@ -857,13 +942,13 @@ export default function AlignOperationalSuite() {
               data-testid="align-logo-menu-trigger"
               className="group flex h-11 items-center gap-2 rounded border border-slate-700 bg-slate-900 px-3 text-left transition hover:border-emerald-400"
               onDoubleClick={() => setInterfaceMenuOpen((open) => !open)}
-              aria-label="ALIGN interface selector"
+              aria-label="Cyncro interface selector"
               title="Interface selector"
             >
               <span className="grid h-6 w-6 place-items-center rounded bg-emerald-400 text-xs font-black text-slate-950">
                 A
               </span>
-              <span className="text-sm font-black tracking-normal text-slate-50">ALiGN</span>
+              <span className="text-sm font-black tracking-normal text-slate-50">Cyncro</span>
             </button>
             {interfaceMenuOpen ? (
               <div className="absolute left-0 top-13 z-40 w-64 rounded border border-slate-700 bg-slate-950 p-2 shadow-terminal">
@@ -928,6 +1013,7 @@ export default function AlignOperationalSuite() {
         <AdminInterface
           references={references}
           users={users}
+          groups={groups}
           audit={audit}
           currentUser={currentUser}
           appendAudit={appendAudit}
@@ -970,7 +1056,7 @@ function LoginScreen({
             A
           </div>
           <div>
-            <p className="text-lg font-black tracking-normal">ALiGN</p>
+            <p className="text-lg font-black tracking-normal">Cyncro</p>
             <p className="text-xs uppercase tracking-normal text-emerald-200">Operational Suite</p>
           </div>
         </div>
@@ -1104,18 +1190,21 @@ function StatusMetric({ label, value, tone }: { label: string; value: number; to
 
 function CounterInterface({
   references,
+  groups,
   currentUser,
   appendAudit,
   onRefresh,
   onLogout,
 }: {
   references: InventoryReference[];
+  groups: CounterGroup[];
   currentUser: OperatorUser;
   appendAudit: (user: string, action: string, severity?: AuditEntry["severity"], ip?: string) => void;
   onRefresh: () => Promise<AppState>;
   onLogout: () => void;
 }) {
   const allers = useMemo(() => Array.from(new Set(references.map((item) => item.aller))).sort(), [references]);
+  const availableCounterGroups = useMemo(() => counterGroupNames(groups), [groups]);
   const [counterGroup, setCounterGroup] = useState(currentUser.group.startsWith("Group") ? currentUser.group : "Group A");
   const [counterAller, setCounterAller] = useState(allers[0] ?? "ALLER-01");
   const assignedReferences = useMemo(
@@ -1130,6 +1219,12 @@ function CounterInterface({
   const [notice, setNotice] = useState("");
   const [manualOverride, setManualOverride] = useState(false);
   const [counterView, setCounterView] = useState<"count" | "live">("count");
+
+  useEffect(() => {
+    if (!availableCounterGroups.includes(counterGroup)) {
+      setCounterGroup(availableCounterGroups[0] ?? "Group A");
+    }
+  }, [availableCounterGroups, counterGroup]);
 
   useEffect(() => {
     if (!assignedReferences.some((item) => item.id === selectedRefId) && assignedReferences[0]) {
@@ -1251,7 +1346,7 @@ function CounterInterface({
     <div data-testid="counter-hub-interface" className="h-screen overflow-hidden bg-[#020617] text-[#f8fafc]">
       <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-4 border-b border-[#475569] bg-[#0f172a] px-4 py-3 lg:flex-nowrap lg:px-6 lg:py-0">
         <div className="flex items-center gap-6">
-          <span className="text-xl font-black uppercase tracking-normal text-white">ALIGN</span>
+          <span className="text-xl font-black uppercase tracking-normal text-white">Cyncro</span>
           <div className="hidden h-6 w-px bg-[#475569] sm:block" />
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-normal text-[#94a3b8]">Active Caller</span>
@@ -1349,9 +1444,7 @@ function CounterInterface({
                 value={counterGroup}
                 onChange={(event) => setCounterGroup(event.target.value)}
               >
-                {groupNames
-                  .filter((group) => group.startsWith("Group"))
-                  .map((group) => (
+                {availableCounterGroups.map((group) => (
                     <option key={group}>{group}</option>
                   ))}
               </select>
@@ -1980,6 +2073,7 @@ function StatusPill({ status }: { status: CountStatus }) {
 
 function FinancierInterface({
   references,
+  groups,
   audit,
   currentUser,
   appendAudit,
@@ -1990,6 +2084,7 @@ function FinancierInterface({
   onLogout,
 }: {
   references: InventoryReference[];
+  groups: CounterGroup[];
   audit: AuditEntry[];
   currentUser: OperatorUser;
   appendAudit: (user: string, action: string, severity?: AuditEntry["severity"], ip?: string) => void;
@@ -2000,8 +2095,9 @@ function FinancierInterface({
   onLogout: () => void;
 }) {
   const allers = useMemo(() => ["ALL", ...Array.from(new Set(references.map((item) => item.aller))).sort()], [references]);
+  const financeCounterGroups = useMemo(() => counterGroupNames(groups), [groups]);
   const [selectedAller, setSelectedAller] = useState("ALL");
-  const [selectedGroups, setSelectedGroups] = useState<string[]>(groupNames.filter((group) => group.startsWith("Group")));
+  const [selectedGroups, setSelectedGroups] = useState<string[]>(financeCounterGroups);
   const [statusFilter, setStatusFilter] = useState<CountStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [dragActive, setDragActive] = useState(false);
@@ -2012,6 +2108,13 @@ function FinancierInterface({
   const [batchNotice, setBatchNotice] = useState("Assignments ready.");
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
   const [auditStatusFilter, setAuditStatusFilter] = useState<CountStatus | "all" | "warning">("all");
+
+  useEffect(() => {
+    setSelectedGroups((previous) => {
+      const next = previous.filter((group) => financeCounterGroups.includes(group));
+      return next.length ? next : financeCounterGroups;
+    });
+  }, [financeCounterGroups]);
 
   const visibleReferences = useMemo(
     () =>
@@ -2149,7 +2252,7 @@ function FinancierInterface({
             sku,
             name,
             aller,
-            assignedGroup: groupNames.includes(assignedGroup) ? assignedGroup : "Group A",
+            assignedGroup: financeCounterGroups.includes(assignedGroup) ? assignedGroup : "Group A",
             required,
             expected,
             unit: measureUnits,
@@ -2244,8 +2347,8 @@ function FinancierInterface({
     }));
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "ALIGN SAP Export");
-    XLSX.writeFile(workbook, `ALIGN_SAP_EXPORT_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Cyncro SAP Export");
+    XLSX.writeFile(workbook, `CYNCRO_SAP_EXPORT_${new Date().toISOString().slice(0, 10)}.xlsx`);
     appendAudit(currentUser.username, `Exported ${exportRows.length} rows for SAP`);
   };
   const confirmedReferences = visibleReferences.filter((item) => item.status === "matching" || item.status === "validated");
@@ -2266,7 +2369,7 @@ function FinancierInterface({
             }}
             title="Double-click for admin interface"
           >
-            ALIGN
+            Cyncro
           </button>
           <nav className="hidden h-full items-center gap-6 text-sm font-semibold md:flex">
             <button
@@ -2538,9 +2641,7 @@ function FinancierInterface({
           </div>
 
           <div className="hidden flex-wrap gap-2 border-b border-slate-800 pb-3">
-            {groupNames
-              .filter((group) => group.startsWith("Group"))
-              .map((group) => (
+            {financeCounterGroups.map((group) => (
                 <button
                   key={group}
                   type="button"
@@ -2664,6 +2765,7 @@ function FinancierInterface({
           batchRows={batchRows}
           batchNotice={batchNotice}
           activeLedgerFile={activeLedgerFile}
+          groupOptions={financeCounterGroups}
           onAssignmentChange={(aller, group) => setBatchAssignments((previous) => ({ ...previous, [aller]: group }))}
           onFinalize={finalizeAssignments}
           onUploadClick={() => document.querySelector<HTMLInputElement>('[data-testid="financier-file-input"]')?.click()}
@@ -2691,6 +2793,7 @@ function FinanceBatchAssignmentView({
   batchRows,
   batchNotice,
   activeLedgerFile,
+  groupOptions,
   onAssignmentChange,
   onFinalize,
   onUploadClick,
@@ -2705,6 +2808,7 @@ function FinanceBatchAssignmentView({
   }>;
   batchNotice: string;
   activeLedgerFile: string;
+  groupOptions: string[];
   onAssignmentChange: (aller: string, group: string) => void;
   onFinalize: () => void;
   onUploadClick: () => void;
@@ -2806,11 +2910,9 @@ function FinanceBatchAssignmentView({
                           onChange={(event) => onAssignmentChange(row.aller, event.target.value)}
                         >
                           <option value="">Select Group...</option>
-                          {groupNames
-                            .filter((group) => group.startsWith("Group"))
-                            .map((group) => (
-                              <option key={group}>{group}</option>
-                            ))}
+                          {groupOptions.map((group) => (
+                            <option key={group}>{group}</option>
+                          ))}
                         </select>
                       </div>
                     </td>
@@ -3337,6 +3439,7 @@ function FinanceTile({
 function AdminInterface({
   references,
   users,
+  groups,
   audit,
   currentUser,
   appendAudit,
@@ -3344,6 +3447,7 @@ function AdminInterface({
 }: {
   references: InventoryReference[];
   users: OperatorUser[];
+  groups: CounterGroup[];
   audit: AuditEntry[];
   currentUser: OperatorUser;
   appendAudit: (user: string, action: string, severity?: AuditEntry["severity"], ip?: string) => void;
@@ -3352,11 +3456,21 @@ function AdminInterface({
   const [newUser, setNewUser] = useState({ username: "", fullName: "", role: "counter" as Role, group: "Group A" });
   const [adminView, setAdminView] = useState<"control" | "live">("control");
   const [showUserForm, setShowUserForm] = useState(false);
+  const [showGroupForm, setShowGroupForm] = useState(false);
   const [showReferenceForm, setShowReferenceForm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [processLocked, setProcessLocked] = useState(references.some((item) => item.status === "locked"));
   const [auditQuery, setAuditQuery] = useState("");
   const [adminNotice, setAdminNotice] = useState("System state synced with in-memory runtime.");
+  const [newGroup, setNewGroup] = useState({ name: "", description: "" });
+  const [adminBatchAssignments, setAdminBatchAssignments] = useState<Record<string, string>>({});
+  const [profileEditorUser, setProfileEditorUser] = useState<OperatorUser | null>(null);
+  const [profileDraft, setProfileDraft] = useState({
+    fullName: "",
+    role: "counter" as Role,
+    group: "Group A",
+    locked: false,
+  });
   const [newReference, setNewReference] = useState({
     id: "",
     sku: "",
@@ -3368,12 +3482,24 @@ function AdminInterface({
     weight: "",
     required: ["quantity"] as MeasureType[],
   });
+  const adminGroupNames = useMemo(() => activeGroupNames(groups), [groups]);
+  const adminCounterGroups = useMemo(() => counterGroupNames(groups), [groups]);
   const lockedCount = references.filter((item) => item.status === "locked").length;
   const discrepancyCount = references.filter((item) => item.status === "discrepancy").length;
   const completedCount = references.filter((item) => item.status === "matching" || item.status === "validated").length;
   const allers = Array.from(new Set(references.map((item) => item.aller))).sort();
-  const counters = users.filter((user) => user.role === "counter");
-  const controllers = users.filter((user) => user.role !== "counter");
+  const batchRows = allers.map((aller) => {
+    const batchItems = references.filter((item) => item.aller === aller);
+    const assignedGroups = Array.from(new Set(batchItems.map((item) => item.assignedGroup))).filter(Boolean);
+    return {
+      aller,
+      references: batchItems.length,
+      assignedGroups,
+      selectedGroup: adminBatchAssignments[aller] ?? (assignedGroups.length === 1 ? assignedGroups[0] : ""),
+      issues: batchItems.filter((item) => item.status === "discrepancy" || item.status === "locked").length,
+    };
+  });
+  const sortedUsers = [...users].sort((first, second) => first.fullName.localeCompare(second.fullName));
   const lockedReferences = references.filter((item) => item.status === "locked");
   const filteredAudit = audit.filter((entry) => {
     const query = auditQuery.trim().toLowerCase();
@@ -3475,7 +3601,7 @@ function AdminInterface({
       );
   };
 
-  const updateUser = (username: string, updates: { role?: Role; group?: string; locked?: boolean }) => {
+  const updateUser = (username: string, updates: { fullName?: string; role?: Role; group?: string; locked?: boolean }) => {
     apiPatch("/api/admin/users", {
       actor: currentUser.username,
       username,
@@ -3490,6 +3616,96 @@ function AdminInterface({
           "warning",
         ),
       );
+  };
+
+  const addGroup = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newGroup.name.trim()) {
+      return;
+    }
+    apiPost("/api/admin/groups", {
+      actor: currentUser.username,
+      group: {
+        name: newGroup.name.trim(),
+        description: newGroup.description.trim(),
+        active: true,
+      },
+    })
+      .then(() => onRefresh())
+      .then(() => {
+        setNewGroup({ name: "", description: "" });
+        setShowGroupForm(false);
+        setAdminNotice("Operational group created and available for assignment.");
+      })
+      .catch((error) =>
+        appendAudit(
+          currentUser.username,
+          error instanceof Error ? `Failed to add group: ${error.message}` : "Failed to add group",
+          "warning",
+        ),
+      );
+  };
+
+  const updateGroup = (name: string, updates: { description?: string; active?: boolean }) => {
+    apiPatch("/api/admin/groups", {
+      actor: currentUser.username,
+      name,
+      updates,
+    })
+      .then(() => onRefresh())
+      .then(() => setAdminNotice(`Group ${name} updated.`))
+      .catch((error) =>
+        appendAudit(
+          currentUser.username,
+          error instanceof Error ? `Failed to update group ${name}: ${error.message}` : `Failed to update group ${name}`,
+          "warning",
+        ),
+      );
+  };
+
+  const assignAdminBatch = (aller: string, group: string) => {
+    if (!group) {
+      return;
+    }
+    apiPost<{ ok: boolean; updated: number }>("/api/finance/assign-batch", {
+      actor: currentUser.username,
+      aller,
+      group,
+    })
+      .then((result) => onRefresh().then(() => result))
+      .then((result) => setAdminNotice(`${aller} assigned to ${group}. ${result.updated} references updated.`))
+      .catch((error) =>
+        appendAudit(
+          currentUser.username,
+          error instanceof Error ? `Failed to assign ${aller}: ${error.message}` : `Failed to assign ${aller}`,
+          "warning",
+        ),
+      );
+  };
+
+  const openProfileEditor = (user: OperatorUser) => {
+    setProfileEditorUser(user);
+    setProfileDraft({
+      fullName: user.fullName,
+      role: user.role,
+      group: user.group,
+      locked: user.locked,
+    });
+  };
+
+  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profileEditorUser || !profileDraft.fullName.trim()) {
+      return;
+    }
+    const username = profileEditorUser.username;
+    updateUser(username, {
+      fullName: profileDraft.fullName.trim(),
+      role: profileDraft.role,
+      group: profileDraft.group,
+      locked: profileDraft.locked,
+    });
+    setProfileEditorUser(null);
   };
 
   const unlockReference = (item: InventoryReference) => {
@@ -3563,7 +3779,7 @@ function AdminInterface({
             sku,
             name,
             aller,
-            assignedGroup: groupNames.includes(assignedGroup) ? assignedGroup : "Group A",
+            assignedGroup: adminCounterGroups.includes(assignedGroup) ? assignedGroup : "Group A",
             required,
             expected,
             unit: measureUnits,
@@ -3610,7 +3826,7 @@ function AdminInterface({
 
   const exportAuditCsv = () => {
     downloadCsv(
-      `ALIGN_AUDIT_${new Date().toISOString().slice(0, 10)}.csv`,
+      `CYNCRO_AUDIT_${new Date().toISOString().slice(0, 10)}.csv`,
       filteredAudit.map((entry) => ({
         Timestamp: entry.timestamp,
         User: entry.user,
@@ -3624,7 +3840,7 @@ function AdminInterface({
 
   const exportReferencesCsv = () => {
     downloadCsv(
-      `ALIGN_REFERENCES_${new Date().toISOString().slice(0, 10)}.csv`,
+      `CYNCRO_REFERENCES_${new Date().toISOString().slice(0, 10)}.csv`,
       references.map((item) => ({
         Reference: item.id,
         SKU: item.sku,
@@ -3673,7 +3889,7 @@ function AdminInterface({
       <div className="mx-auto max-w-[1480px]">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4 px-1">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-black tracking-normal text-white">ALIGN</h1>
+            <h1 className="text-2xl font-black tracking-normal text-white">Cyncro</h1>
             <div className="hidden h-6 w-px bg-[#444749] sm:block" />
             <p className="text-sm font-medium text-[#c4c7c9]">Admin Control Center</p>
           </div>
@@ -3878,7 +4094,7 @@ function AdminInterface({
                     value={newUser.group}
                     onChange={(event) => setNewUser((previous) => ({ ...previous, group: event.target.value }))}
                   >
-                    {groupNames.map((group) => (
+                    {adminGroupNames.map((group) => (
                       <option key={group}>{group}</option>
                     ))}
                   </select>
@@ -3904,106 +4120,227 @@ function AdminInterface({
               </form>
             )}
 
-            <div className="grid gap-px bg-[#444749] md:grid-cols-2">
-              <div className="bg-[#122131] p-4">
-                <h3 className="mb-4 text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">
-                  Counters (Active: {counters.filter((user) => !user.locked).length})
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-left text-sm">
-                    <thead className="border-b border-[#444749]/70 text-[11px] uppercase tracking-normal text-[#c4c7c9]">
-                      <tr>
-                        <th className="py-2 pr-3">User ID</th>
-                        <th className="py-2 pr-3">Group</th>
-                        <th className="py-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {counters.map((user) => (
-                        <tr key={user.username} className="border-b border-[#444749]/40 transition hover:bg-[#273647]">
-                          <td className="py-3 pr-3">
-                            <p className="font-mono font-bold text-white">{user.username}</p>
-                            <p className="text-xs text-[#c4c7c9]">{user.fullName}</p>
-                          </td>
-                          <td className="py-3 pr-3">
-                            <select
-                              data-testid={`admin-user-group-${user.username}`}
-                              className={cx(adminInputClass, "h-8 text-xs")}
-                              value={user.group}
-                              onChange={(event) => updateUser(user.username, { group: event.target.value })}
-                            >
-                              {groupNames.map((group) => (
-                                <option key={group}>{group}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-3 text-right">
-                            <button
-                              type="button"
-                              data-testid={`admin-user-lock-${user.username}`}
-                              className={cx(adminSmallButtonClass, user.locked && "border-emerald-400 text-emerald-300")}
-                              onClick={() => updateUser(user.username, { locked: !user.locked })}
-                            >
-                              {user.locked ? "Unlock" : "Lock"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            <div className="grid gap-3 bg-[#0d1c2d] p-4 xl:grid-cols-3">
+              {sortedUsers.map((user) => {
+                const initials = user.fullName
+                  .split(" ")
+                  .map((part) => part[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase();
+                return (
+                  <article key={user.username} className="border border-[#444749] bg-[#122131] p-4">
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border border-[#8e9193] bg-[#3f465c] text-xs font-black text-white">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-black text-white">{user.fullName}</h3>
+                          <p className="font-mono text-xs font-bold text-[#c4c7c9]">{user.username}</p>
+                        </div>
+                      </div>
+                      <span
+                        className={cx(
+                          "shrink-0 rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-normal",
+                          user.locked
+                            ? "border-red-300/50 bg-red-950 text-red-200"
+                            : "border-emerald-300/40 bg-emerald-950 text-emerald-300",
+                        )}
+                      >
+                        {user.locked ? "Locked" : "Active"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="border border-[#444749] bg-[#051424] p-2">
+                        <p className="text-[10px] font-black uppercase tracking-normal text-[#8e9193]">Role</p>
+                        <p className="mt-1 font-black text-white">{roleLabels[user.role]}</p>
+                      </div>
+                      <div className="border border-[#444749] bg-[#051424] p-2">
+                        <p className="text-[10px] font-black uppercase tracking-normal text-[#8e9193]">Group</p>
+                        <p className="mt-1 font-black text-white">{user.group}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        data-testid={`admin-user-lock-${user.username}`}
+                        className={cx(adminSmallButtonClass, user.locked && "border-emerald-400 text-emerald-300")}
+                        onClick={() => updateUser(user.username, { locked: !user.locked })}
+                      >
+                        {user.locked ? "Unlock" : "Lock"}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`admin-edit-profile-${user.username}`}
+                        className="inline-flex h-8 items-center justify-center gap-2 rounded-sm bg-white px-3 text-[11px] font-black uppercase tracking-normal text-[#051424] transition hover:bg-[#d4e4fa]"
+                        onClick={() => openProfileEditor(user)}
+                      >
+                        <UserCog className="h-4 w-4" />
+                        Edit Profile
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-              <div className="bg-[#122131] p-4">
-                <h3 className="mb-4 text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">
-                  Controllers (Active: {controllers.filter((user) => !user.locked).length})
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="border-b border-[#444749]/70 text-[11px] uppercase tracking-normal text-[#c4c7c9]">
-                      <tr>
-                        <th className="py-2 pr-3">User ID</th>
-                        <th className="py-2 pr-3">Role</th>
-                        <th className="py-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {controllers.map((user) => (
-                        <tr key={user.username} className="border-b border-[#444749]/40 transition hover:bg-[#273647]">
-                          <td className="py-3 pr-3">
-                            <p className="font-mono font-bold text-white">{user.username}</p>
-                            <p className="text-xs text-[#c4c7c9]">{user.fullName}</p>
-                          </td>
-                          <td className="py-3 pr-3">
-                            <select
-                              data-testid={`admin-user-role-${user.username}`}
-                              className={cx(adminInputClass, "h-8 text-xs")}
-                              value={user.role}
-                              onChange={(event) => updateUser(user.username, { role: event.target.value as Role })}
-                            >
-                              {(["counter", "financier", "admin"] as Role[]).map((role) => (
-                                <option key={role} value={role}>
-                                  {roleLabels[role]}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-3 text-right">
-                            <button
-                              type="button"
-                              data-testid={`admin-user-lock-${user.username}`}
-                              className={cx(adminSmallButtonClass, user.locked && "border-emerald-400 text-emerald-300")}
-                              onClick={() => updateUser(user.username, { locked: !user.locked })}
-                            >
-                              {user.locked ? "Unlock" : "Lock"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+          <section className={cx(adminPanelClass, "col-span-12 overflow-hidden xl:col-span-6")}>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#444749] bg-[#1c2b3c] p-4">
+              <div className="flex items-center gap-3">
+                <Warehouse className="h-5 w-5 text-white" />
+                <h2 className="text-lg font-black text-white">Group Management</h2>
               </div>
+              <button
+                type="button"
+                data-testid="admin-toggle-add-group-button"
+                className={adminSmallButtonClass}
+                onClick={() => setShowGroupForm((previous) => !previous)}
+              >
+                Add Group
+              </button>
+            </div>
+            {showGroupForm && (
+              <form onSubmit={addGroup} className="border-b border-[#444749] bg-[#0d1c2d] p-4">
+                <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <input
+                    data-testid="admin-new-group-name"
+                    className={adminInputClass}
+                    value={newGroup.name}
+                    onChange={(event) => setNewGroup((previous) => ({ ...previous, name: event.target.value }))}
+                    placeholder="Group D"
+                  />
+                  <input
+                    data-testid="admin-new-group-description"
+                    className={adminInputClass}
+                    value={newGroup.description}
+                    onChange={(event) => setNewGroup((previous) => ({ ...previous, description: event.target.value }))}
+                    placeholder="Warehouse zone or responsibility"
+                  />
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    data-testid="admin-cancel-add-group-button"
+                    className={adminSmallButtonClass}
+                    onClick={() => setShowGroupForm(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    data-testid="admin-add-group-button"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-sm bg-emerald-400 px-4 text-[11px] font-black uppercase tracking-normal text-[#051424] transition hover:bg-emerald-300"
+                  >
+                    Create Group
+                  </button>
+                </div>
+              </form>
+            )}
+            <div className="divide-y divide-[#444749]/50">
+              {groups.map((group) => {
+                const userCount = users.filter((user) => user.group === group.name).length;
+                const referenceCount = references.filter((reference) => reference.assignedGroup === group.name).length;
+                return (
+                  <div key={group.name} className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_120px_120px_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-black text-white">{group.name}</h3>
+                        <span
+                          className={cx(
+                            "rounded-sm border px-2 py-1 text-[10px] font-black uppercase tracking-normal",
+                            group.active
+                              ? "border-emerald-300/40 bg-emerald-950 text-emerald-300"
+                              : "border-[#8e9193] bg-[#273647] text-[#c4c7c9]",
+                          )}
+                        >
+                          {group.active ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      <input
+                        data-testid={`admin-group-description-${group.name}`}
+                        className={cx(adminInputClass, "mt-2 h-9 text-xs")}
+                        defaultValue={group.description}
+                        onBlur={(event) => {
+                          if (event.target.value !== group.description) {
+                            updateGroup(group.name, { description: event.target.value });
+                          }
+                        }}
+                      />
+                    </div>
+                    <AdminCompactStat label="Users" value={userCount.toString()} tone="emerald" />
+                    <AdminCompactStat label="Refs" value={referenceCount.toString()} tone="amber" />
+                    <button
+                      type="button"
+                      data-testid={`admin-group-active-${group.name}`}
+                      className={cx(adminSmallButtonClass, group.active && "border-emerald-400 text-emerald-300")}
+                      onClick={() => updateGroup(group.name, { active: !group.active })}
+                    >
+                      {group.active ? "Deactivate" : "Activate"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className={cx(adminPanelClass, "col-span-12 overflow-hidden xl:col-span-6")}>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#444749] bg-[#1c2b3c] p-4">
+              <div className="flex items-center gap-3">
+                <MapPin className="h-5 w-5 text-white" />
+                <h2 className="text-lg font-black text-white">Batch Assignments</h2>
+              </div>
+              <span className="text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">{batchRows.length} allers</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="bg-[#0d1c2d] text-[11px] uppercase tracking-normal text-[#c4c7c9]">
+                  <tr>
+                    <th className="px-4 py-2">Aller</th>
+                    <th className="px-4 py-2 text-right">Refs</th>
+                    <th className="px-4 py-2">Current</th>
+                    <th className="px-4 py-2">Assign To</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#444749]/40">
+                  {batchRows.map((row) => (
+                    <tr key={row.aller} className="transition hover:bg-[#273647]">
+                      <td className="px-4 py-3 font-mono font-black text-white">{row.aller}</td>
+                      <td className="px-4 py-3 text-right font-mono">{row.references}</td>
+                      <td className="px-4 py-3 text-xs text-[#c4c7c9]">
+                        {row.assignedGroups.join(", ") || "Unassigned"}
+                        {row.issues > 0 ? <span className="ml-2 text-amber-300">{row.issues} issues</span> : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <select
+                            data-testid={`admin-batch-group-${row.aller}`}
+                            className={cx(adminInputClass, "h-9 text-xs")}
+                            value={row.selectedGroup}
+                            onChange={(event) =>
+                              setAdminBatchAssignments((previous) => ({ ...previous, [row.aller]: event.target.value }))
+                            }
+                          >
+                            <option value="">Select group</option>
+                            {adminCounterGroups.map((group) => (
+                              <option key={group}>{group}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            data-testid={`admin-assign-batch-${row.aller}`}
+                            className={adminSmallButtonClass}
+                            onClick={() => assignAdminBatch(row.aller, row.selectedGroup)}
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -4086,11 +4423,9 @@ function AdminInterface({
                       setNewReference((previous) => ({ ...previous, assignedGroup: event.target.value }))
                     }
                   >
-                    {groupNames
-                      .filter((group) => group.startsWith("Group"))
-                      .map((group) => (
-                        <option key={group}>{group}</option>
-                      ))}
+                    {adminCounterGroups.map((group) => (
+                      <option key={group}>{group}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -4270,6 +4605,107 @@ function AdminInterface({
           </section>
         </div>
 
+        {profileEditorUser && (
+          <div
+            data-testid="admin-profile-modal"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#051424]/85 p-4 backdrop-blur-sm"
+          >
+            <form onSubmit={saveProfile} className="w-full max-w-xl border border-[#8e9193] bg-[#122131] p-5 shadow-2xl">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-normal text-emerald-300">Operator Profile</p>
+                  <h2 className="mt-1 text-2xl font-black text-white">{profileEditorUser.username}</h2>
+                  <p className="mt-1 text-sm font-medium text-[#c4c7c9]">Edit identity, access, assignment, and account state.</p>
+                </div>
+                <button
+                  type="button"
+                  data-testid="admin-profile-cancel"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-[#444749] text-[#d4e4fa] transition hover:bg-[#273647]"
+                  onClick={() => setProfileEditorUser(null)}
+                  aria-label="Close profile editor"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="sm:col-span-2">
+                  <span className="mb-1 block text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">Full Name</span>
+                  <input
+                    data-testid="admin-profile-fullname"
+                    className={adminInputClass}
+                    value={profileDraft.fullName}
+                    onChange={(event) => setProfileDraft((previous) => ({ ...previous, fullName: event.target.value }))}
+                    placeholder="Full name"
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">Role</span>
+                  <select
+                    data-testid="admin-profile-role"
+                    className={adminInputClass}
+                    value={profileDraft.role}
+                    onChange={(event) => setProfileDraft((previous) => ({ ...previous, role: event.target.value as Role }))}
+                  >
+                    {(["counter", "financier", "admin"] as Role[]).map((role) => (
+                      <option key={role} value={role}>
+                        {roleLabels[role]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-1 block text-[11px] font-black uppercase tracking-normal text-[#c4c7c9]">Group</span>
+                  <select
+                    data-testid="admin-profile-group"
+                    className={adminInputClass}
+                    value={profileDraft.group}
+                    onChange={(event) => setProfileDraft((previous) => ({ ...previous, group: event.target.value }))}
+                  >
+                    {adminGroupNames.map((group) => (
+                      <option key={group}>{group}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="mt-4 flex items-center justify-between gap-4 border border-[#444749] bg-[#051424] p-3">
+                <span>
+                  <span className="block text-[11px] font-black uppercase tracking-normal text-white">Account Locked</span>
+                  <span className="mt-1 block text-xs text-[#c4c7c9]">Locked users cannot access their assigned interface.</span>
+                </span>
+                <input
+                  data-testid="admin-profile-lock"
+                  type="checkbox"
+                  className="h-5 w-5 accent-emerald-400"
+                  checked={profileDraft.locked}
+                  onChange={(event) => setProfileDraft((previous) => ({ ...previous, locked: event.target.checked }))}
+                />
+              </label>
+
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  data-testid="admin-profile-cancel-bottom"
+                  className={adminSmallButtonClass}
+                  onClick={() => setProfileEditorUser(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  data-testid="admin-profile-save"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-emerald-400 px-5 text-[11px] font-black uppercase tracking-normal text-[#051424] transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!profileDraft.fullName.trim()}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Save Profile
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {showResetConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#051424]/85 p-4 backdrop-blur-sm">
             <div className="w-full max-w-md border border-red-300/70 bg-[#1c2b3c] p-6 shadow-2xl">
@@ -4381,7 +4817,7 @@ function AdminLiveMonitorView({
       <header className="sticky top-0 z-20 border-b border-slate-800 bg-[#020617]">
         <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex flex-wrap items-center gap-5">
-            <span className="text-xl font-black text-white">ALIGN-LIVE</span>
+            <span className="text-xl font-black text-white">Cyncro Live</span>
           </div>
           <div className="flex items-center gap-2">
             <button

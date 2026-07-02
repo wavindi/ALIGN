@@ -14,6 +14,12 @@ export type ApiUser = {
   locked: boolean;
 };
 
+export type ApiGroup = {
+  name: string;
+  description: string;
+  active: boolean;
+};
+
 export type ApiReference = {
   id: string;
   sku: string;
@@ -45,6 +51,7 @@ type StoredUser = ApiUser & {
 type DemoStore = {
   users: StoredUser[];
   references: ApiReference[];
+  groups: ApiGroup[];
   audit: ApiAuditEntry[];
   nextAuditId: number;
 };
@@ -62,7 +69,21 @@ export const measureUnits: Record<MeasureType, string> = {
   weight: "kg",
 };
 
-const groupNames = ["Group A", "Group B", "Group C"];
+const seedGroups: ApiGroup[] = [
+  { name: "Group A", description: "Primary aisle counting team", active: true },
+  { name: "Group B", description: "Secondary warehouse team", active: true },
+  { name: "Group C", description: "Overflow and recount team", active: true },
+  { name: "Supervisor", description: "Administrative supervision", active: true },
+  { name: "Control Room", description: "Finance and reconciliation desk", active: true },
+];
+
+function activeGroupNames() {
+  return store().groups.filter((group) => group.active).map((group) => group.name);
+}
+
+function activeCounterGroupNames() {
+  return activeGroupNames().filter((group) => group.startsWith("Group"));
+}
 
 const seedReferences: ApiReference[] = [
   {
@@ -145,7 +166,7 @@ const seedReferences: ApiReference[] = [
 const seedUsers: ApiUser[] = [
   { username: "counter", fullName: "Maya Counter", role: "counter", group: "Group A", locked: false },
   { username: "finance", fullName: "Jonas Controller", role: "financier", group: "Control Room", locked: false },
-  { username: "admin", fullName: "ALIGN Admin", role: "admin", group: "Supervisor", locked: false },
+  { username: "admin", fullName: "Cyncro Admin", role: "admin", group: "Supervisor", locked: false },
 ];
 
 const seedAudit: Array<Omit<ApiAuditEntry, "id">> = [
@@ -225,6 +246,7 @@ function createInitialStore(): DemoStore {
   return {
     users: seedUsers.map((user) => ({ ...user, passwordHash: hashPassword("align") })),
     references: seedReferences.map(cloneReference),
+    groups: seedGroups.map((group) => ({ ...group })),
     audit: seedAudit.map((entry, index) => ({ ...entry, id: `AUD-SEED-${index + 1}` })),
     nextAuditId: seedAudit.length + 1,
   };
@@ -250,6 +272,7 @@ export async function getAppState() {
   return {
     users: currentStore.users.map(serializeUser).sort((a, b) => a.role.localeCompare(b.role) || a.username.localeCompare(b.username)),
     references: currentStore.references.map(cloneReference).sort((a, b) => a.aller.localeCompare(b.aller) || a.id.localeCompare(b.id)),
+    groups: currentStore.groups.map((group) => ({ ...group })).sort((a, b) => a.name.localeCompare(b.name)),
     audit: currentStore.audit.slice(0, 150),
   };
 }
@@ -287,7 +310,7 @@ export async function loginUser(username: string, password: string, ip: string) 
   if (!user || user.locked || !verifyPassword(password, user.passwordHash)) {
     throw new RouteError("Invalid credentials or locked user.", 401);
   }
-  await addAudit(user.username, "Signed in to ALIGN workstation", "info", ip);
+  await addAudit(user.username, "Signed in to Cyncro workstation", "info", ip);
   return serializeUser(user);
 }
 
@@ -381,7 +404,7 @@ export async function countAgainReference(actorName: string | undefined, referen
   if (!reference) {
     throw new RouteError("Reference not found.", 404);
   }
-  const nextGroup = groupNames.find((group) => group !== reference.assignedGroup) ?? "Group A";
+  const nextGroup = activeCounterGroupNames().find((group) => group !== reference.assignedGroup) ?? "Group A";
   reference.assignedGroup = nextGroup;
   reference.secondGroup = nextGroup;
   reference.status = "pending";
@@ -398,7 +421,7 @@ export async function assignBatch(actorName: string | undefined, aller: string |
   if (!normalizedAller || !normalizedGroup) {
     throw new RouteError("Aller and assignment group are required.", 400);
   }
-  if (!/^Group [A-Z]$/.test(normalizedGroup)) {
+  if (!activeCounterGroupNames().includes(normalizedGroup)) {
     throw new RouteError("Assignment group must be a counter group.", 400);
   }
   let updated = 0;
@@ -431,7 +454,9 @@ export async function importReferences(actorName: string | undefined, references
       sku: reference.sku?.trim() || id,
       name: reference.name?.trim() || "SAP Material",
       aller: reference.aller?.trim().toUpperCase() || "ALLER-IMPORT",
-      assignedGroup: reference.assignedGroup?.trim() || "Group A",
+      assignedGroup: activeCounterGroupNames().includes(reference.assignedGroup?.trim() ?? "")
+        ? reference.assignedGroup.trim()
+        : "Group A",
       required: required.length ? required : ["quantity"],
       expected: { ...reference.expected },
       unit: measureUnits,
@@ -470,7 +495,7 @@ export async function addUser(
     username,
     fullName,
     role: user?.role ?? "counter",
-    group: user?.group ?? "Group A",
+    group: activeGroupNames().includes(user?.group ?? "") ? user?.group ?? "Group A" : "Group A",
     locked: false,
     passwordHash: hashPassword("align"),
   });
@@ -480,7 +505,7 @@ export async function addUser(
 export async function updateUser(
   actorName: string | undefined,
   username: string | undefined,
-  updates: { role?: Role; group?: string; locked?: boolean } | undefined,
+  updates: { fullName?: string; role?: Role; group?: string; locked?: boolean } | undefined,
   ip: string,
 ) {
   const actor = await requireActor(actorName, ["admin"]);
@@ -492,10 +517,67 @@ export async function updateUser(
   if (!user) {
     throw new RouteError("User not found.", 404);
   }
+  if (updates?.fullName !== undefined) {
+    const fullName = updates.fullName.trim();
+    if (!fullName) {
+      throw new RouteError("Full name is required.", 400);
+    }
+    user.fullName = fullName;
+  }
   if (updates?.role) user.role = updates.role;
-  if (updates?.group) user.group = updates.group;
+  if (updates?.group) {
+    if (!activeGroupNames().includes(updates.group)) {
+      throw new RouteError("User group is not active.", 400);
+    }
+    user.group = updates.group;
+  }
   if (typeof updates?.locked === "boolean") user.locked = updates.locked;
   await addAudit(actor.username, `Updated user ${normalizedUsername}`, "info", ip);
+}
+
+export async function addGroup(
+  actorName: string | undefined,
+  group: { name?: string; description?: string; active?: boolean } | undefined,
+  ip: string,
+) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const name = group?.name?.trim();
+  if (!name) {
+    throw new RouteError("Group name is required.", 400);
+  }
+  if (store().groups.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
+    throw new RouteError("Group already exists.", 409);
+  }
+  store().groups.push({
+    name,
+    description: group?.description?.trim() || "Operational counter group",
+    active: group?.active ?? true,
+  });
+  await addAudit(actor.username, `Added operational group ${name}`, "info", ip);
+}
+
+export async function updateGroup(
+  actorName: string | undefined,
+  name: string | undefined,
+  updates: { description?: string; active?: boolean } | undefined,
+  ip: string,
+) {
+  const actor = await requireActor(actorName, ["admin"]);
+  const normalizedName = name?.trim();
+  if (!normalizedName) {
+    throw new RouteError("Group name is required.", 400);
+  }
+  const group = store().groups.find((item) => item.name === normalizedName);
+  if (!group) {
+    throw new RouteError("Group not found.", 404);
+  }
+  if (updates?.description !== undefined) {
+    group.description = updates.description.trim() || "Operational counter group";
+  }
+  if (typeof updates?.active === "boolean") {
+    group.active = updates.active;
+  }
+  await addAudit(actor.username, `Updated operational group ${normalizedName}`, "info", ip);
 }
 
 export async function addReference(actorName: string | undefined, reference: ApiReference | undefined, ip: string) {
@@ -516,7 +598,7 @@ export async function addReference(actorName: string | undefined, reference: Api
     sku: reference.sku?.trim() || id,
     name: reference.name.trim(),
     aller: reference.aller?.trim().toUpperCase() || "ALLER-01",
-    assignedGroup: reference.assignedGroup || "Group A",
+    assignedGroup: activeCounterGroupNames().includes(reference.assignedGroup) ? reference.assignedGroup : "Group A",
     required,
     expected: { ...reference.expected },
     unit: measureUnits,

@@ -20,7 +20,7 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as {
       actor?: string;
       username?: string;
-      updates?: { role?: Role; group?: string; locked?: boolean };
+      updates?: { fullName?: string; role?: Role; group?: string; locked?: boolean };
     };
     await updateUser(body.actor, body.username, body.updates, requestIp(request));
     return Response.json({ ok: true });
