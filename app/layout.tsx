@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Cyncro Operational Suite",
-  description: "Inventory day stock counting and reconciliation suite.",
+  title: "Suite opérationnelle Cyncro",
+  description: "Suite de comptage et de rapprochement des stocks pour les journées d'inventaire.",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <body>{children}</body>
     </html>
   );

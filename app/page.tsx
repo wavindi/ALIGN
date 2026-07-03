@@ -278,6 +278,373 @@ const dangerButtonClass =
 const iconButtonClass =
   "inline-flex h-10 w-10 items-center justify-center rounded border border-slate-700 bg-slate-950 text-slate-200 transition hover:border-emerald-400 hover:text-emerald-100";
 
+type Language = "fr" | "en";
+
+const englishToFrench: Record<string, string> = {
+  "Cyncro Operational Suite": "Suite opérationnelle Cyncro",
+  "Operational Suite": "Suite opérationnelle",
+  "Inventory Day Workstation": "Poste de journée d'inventaire",
+  "Count, reconcile, export.": "Compter, rapprocher, exporter.",
+  "High contrast interface / WCAG-focused controls / PC optimized":
+    "Interface à contraste élevé / contrôles conformes WCAG / optimisée pour PC",
+  "Secure Entry": "Accès sécurisé",
+  "Primary interface opens from user role.": "L'interface principale s'ouvre selon le rôle utilisateur.",
+  Username: "Nom d'utilisateur",
+  Password: "Mot de passe",
+  "Hide password": "Masquer le mot de passe",
+  "Show password": "Afficher le mot de passe",
+  Connecting: "Connexion",
+  "Enter Workstation": "Entrer dans le poste",
+  Counter: "Compteur",
+  Financier: "Financier",
+  Admin: "Administrateur",
+  "Cyncro interface selector": "Sélecteur d'interface Cyncro",
+  "Interface selector": "Sélecteur d'interface",
+  "Cycle 2026-06-10": "Cycle 2026-06-10",
+  "PC Workstation": "Poste PC",
+  Online: "En ligne",
+  "Log out": "Se déconnecter",
+  Logout: "Déconnexion",
+  Pending: "En attente",
+  Matching: "Conforme",
+  Discrepancy: "Écart",
+  Locked: "Verrouillé",
+  Validated: "Validé",
+  Dashboard: "Tableau de bord",
+  "Live Monitor": "Moniteur en direct",
+  "Admin Control Center": "Centre de contrôle admin",
+  "Financier Controller": "Contrôleur financier",
+  "Financier Overview": "Vue financier",
+  "Inventory Oversight": "Supervision de l'inventaire",
+  "Reconciliation and discrepancy management for controlled stock.":
+    "Rapprochement et gestion des écarts pour les stocks contrôlés.",
+  "Manage reconciliation states and finalize SAP batch exports.":
+    "Gérer les états de rapprochement et finaliser les exports SAP.",
+  "Import master data from SAP or export the local reconciliation dataset.":
+    "Importer les données maîtres SAP ou exporter le jeu de rapprochement local.",
+  "Import SAP Data": "Importer les données SAP",
+  "Upload SAP File": "Téléverser le fichier SAP",
+  "Export Final SAP File": "Exporter le fichier SAP final",
+  "Export Results": "Exporter les résultats",
+  "Export CSV": "Exporter CSV",
+  Export: "Exporter",
+  "SAP export": "Export SAP",
+  "SAP import": "Import SAP",
+  "SAP Qty": "Qté SAP",
+  "SAP Sync: Active": "Synchronisation SAP : active",
+  "Sync SAP": "Synchroniser SAP",
+  "Active Ledger File": "Fichier grand livre actif",
+  "Target Export File": "Fichier d'export cible",
+  "File Operations": "Opérations de fichiers",
+  "Batch Assignment": "Affectation des lots",
+  "Batch Assignments": "Affectations des lots",
+  "Batch Completion": "Avancement du lot",
+  "Batch ID": "ID du lot",
+  "Batch Scope": "Périmètre du lot",
+  "Batches (See Allers)": "Lots (voir Allers)",
+  "Les Allers: Batch Assignment": "Les Allers : affectation des lots",
+  "Finalize Assignments": "Finaliser les affectations",
+  "Assign To": "Affecter à",
+  "Assignment Group": "Groupe d'affectation",
+  "Select group": "Sélectionner un groupe",
+  "Select Group...": "Sélectionner un groupe...",
+  "Group Management": "Gestion des groupes",
+  "Add Group": "Ajouter un groupe",
+  "Create Group": "Créer un groupe",
+  Group: "Groupe",
+  "Group A": "Groupe A",
+  "Group B": "Groupe B",
+  "Group C": "Groupe C",
+  Supervisor: "Superviseur",
+  "Control Room": "Salle de contrôle",
+  "Primary aisle counting team": "Équipe de comptage de l'allée principale",
+  "Secondary warehouse team": "Équipe secondaire de l'entrepôt",
+  "Overflow and recount team": "Équipe de surplus et recomptage",
+  "Administrative supervision": "Supervision administrative",
+  "Finance and reconciliation desk": "Bureau finance et rapprochement",
+  "Counter Login": "Connexion compteur",
+  "Operator Profile": "Profil opérateur",
+  "Reference Panel": "Panneau référence",
+  "Reference ID": "ID référence",
+  "Reference Image": "Image référence",
+  "Manual Scan": "Scan manuel",
+  "Scan History": "Historique de scan",
+  "No references assigned to this group and aller.":
+    "Aucune référence affectée à ce groupe et à cet Aller.",
+  "Blind count mode active. Perform physical check twice if discrepancy exists.":
+    "Mode comptage aveugle actif. Effectuez deux vérifications physiques en cas d'écart.",
+  "Back to Count": "Retour au comptage",
+  "ENLARGE (F4)": "AGRANDIR (F4)",
+  "SUBMIT COUNT": "VALIDER LE COMPTAGE",
+  "FLAG MISMATCH": "SIGNALER L'ÉCART",
+  "Attempt Status": "État de tentative",
+  "Max attempts": "Tentatives max",
+  "Current": "Actuel",
+  Expected: "Attendu",
+  Actual: "Réel",
+  Qty: "Qté",
+  Quantity: "Quantité",
+  Volume: "Volume",
+  Weight: "Poids",
+  Units: "Unités",
+  "Weight/Unit": "Poids/unité",
+  Thickness: "Épaisseur",
+  Material: "Matière",
+  "Product Specs": "Spécifications produit",
+  "Contextual Info": "Infos contextuelles",
+  Location: "Emplacement",
+  "Warehouse Alpha": "Entrepôt Alpha",
+  "Active Batch": "Lot actif",
+  "Active Caller": "Appelant actif",
+  "Active Cycle": "Cycle actif",
+  "Manual Override": "Remplacement manuel",
+  Override: "Remplacer",
+  Unlock: "Déverrouiller",
+  "Security Overrides": "Dérogations de sécurité",
+  "No locked references requiring override.":
+    "Aucune référence verrouillée nécessitant une dérogation.",
+  "System Controls": "Contrôles système",
+  "System Event Trail": "Journal des événements système",
+  "System Monitor": "Moniteur système",
+  "System Nominal": "Système nominal",
+  "System Online": "Système en ligne",
+  "System Online - Sync Active": "Système en ligne - synchronisation active",
+  "System Status": "État du système",
+  "System Throughput": "Débit système",
+  "Real-Time": "Temps réel",
+  "Real-Time Feed": "Flux temps réel",
+  "Real-time telemetry and audit verification.":
+    "Télémétrie en temps réel et vérification d'audit.",
+  "Real-time throughput and infrastructure health.":
+    "Débit en temps réel et état de l'infrastructure.",
+  "Waiting for live count events.": "En attente des événements de comptage en direct.",
+  "Recent Activity Log": "Journal d'activité récent",
+  "Recent Reconciliation Activity": "Activité de rapprochement récente",
+  "Audit Log": "Journal d'audit",
+  "All Logs": "Tous les journaux",
+  "View All Logs": "Voir tous les journaux",
+  "IP Address": "Adresse IP",
+  Timestamp: "Horodatage",
+  User: "Utilisateur",
+  Action: "Action",
+  Reason: "Motif",
+  Priority: "Priorité",
+  "Critical Alerts": "Alertes critiques",
+  "Requests / Hour": "Requêtes / heure",
+  "User Management": "Gestion des utilisateurs",
+  "Add User": "Ajouter un utilisateur",
+  "Create User": "Créer un utilisateur",
+  "Full Name": "Nom complet",
+  Role: "Rôle",
+  "Edit Profile": "Modifier le profil",
+  "Edit identity, access, assignment, and account state.":
+    "Modifier l'identité, l'accès, l'affectation et l'état du compte.",
+  "Save Profile": "Enregistrer le profil",
+  "View / Edit": "Voir / modifier",
+  "Locked users cannot access their assigned interface.":
+    "Les utilisateurs verrouillés ne peuvent pas accéder à leur interface affectée.",
+  "Account Locked": "Compte verrouillé",
+  "Manage product references and criteria.":
+    "Gérer les références produit et les critères.",
+  "Add Reference": "Ajouter une référence",
+  "Reference": "Référence",
+  References: "Références",
+  Refs: "Réfs",
+  "Total SKU Count": "Nombre total de SKU",
+  SKUs: "SKU",
+  "SKU ID": "ID SKU",
+  "Actual Counted": "Compté réel",
+  "Expected Count": "Comptage attendu",
+  Status: "Statut",
+  Filters: "Filtres",
+  Filter: "Filtrer",
+  Apply: "Appliquer",
+  Settings: "Paramètres",
+  Support: "Support",
+  Docs: "Docs",
+  "Quick Actions": "Actions rapides",
+  Actions: "Actions",
+  Cancel: "Annuler",
+  Confirmed: "Confirmé",
+  "Confirm System Reset": "Confirmer la réinitialisation système",
+  "Execute Day Reset": "Exécuter la réinitialisation du jour",
+  "I Understand, Execute Now": "Je comprends, exécuter maintenant",
+  "Freeze active counter operations": "Geler les opérations de comptage actives",
+  "This archives the active cycle state, clears temporary locks, and returns references to pending count.":
+    "Cette action archive l'état du cycle actif, supprime les verrous temporaires et remet les références en attente de comptage.",
+  "Process Lock": "Verrou de processus",
+  "Pause Batch": "Suspendre le lot",
+  "Back to Admin": "Retour admin",
+  "Account": "Compte",
+  "Language": "Langue",
+  "French": "Français",
+  "English": "Anglais",
+  "Choose language": "Choisir la langue",
+  "Invalid credentials or locked user.": "Identifiants invalides ou utilisateur verrouillé.",
+  "Signed in to Cyncro workstation": "Connexion au poste Cyncro",
+  "Signed out of Cyncro workstation": "Déconnexion du poste Cyncro",
+  "Inventory day cycle opened": "Cycle de journée d'inventaire ouvert",
+  "SAP baseline loaded for ALLER-01": "Base SAP chargée pour ALLER-01",
+  "REF-WT-510 locked after third failed attempt": "REF-WT-510 verrouillée après la troisième tentative échouée",
+  "Ready for Processing": "Prêt pour traitement",
+  "processed successfully.": "traité avec succès.",
+  "User created with default password: align.": "Utilisateur créé avec le mot de passe par défaut : align.",
+  "Uploaded": "Téléversé",
+  "references from": "références depuis",
+  "Count submitted for": "Comptage soumis pour",
+  "Requested recount for": "Recomptage demandé pour",
+  "Assigned": "Affecté",
+  "Unlocked": "Déverrouillé",
+  "Reset inventory day cycle": "Cycle de journée d'inventaire réinitialisé",
+  "Added user": "Utilisateur ajouté",
+  "Updated user": "Utilisateur mis à jour",
+  "Added reference": "Référence ajoutée",
+  "Updated reference": "Référence mise à jour",
+  "Added operational group": "Groupe opérationnel ajouté",
+  "Updated operational group": "Groupe opérationnel mis à jour",
+  "Exported SAP reconciliation file": "Fichier de rapprochement SAP exporté",
+  "Exported audit log": "Journal d'audit exporté",
+  "Exported references": "Références exportées",
+  "Maya Counter": "Maya Compteur",
+  "Jonas Controller": "Jonas Contrôleur",
+  "Cyncro Admin": "Admin Cyncro",
+  "Valve Control Boxes": "Boîtiers de contrôle de valve",
+  "Industrial Cleaning Fluid": "Fluide de nettoyage industriel",
+  "Copper Wire Pallets": "Palettes de fil de cuivre",
+  "Maintenance Kit Mixed Case": "Caisse mixte de kit de maintenance",
+  "Packaging Sleeves": "Manchons d'emballage",
+  "Coating Compound Canisters": "Bidons de composé de revêtement",
+};
+
+const frenchToEnglish = Object.fromEntries(
+  Object.entries(englishToFrench).map(([english, french]) => [french, english]),
+) as Record<string, string>;
+
+function translateVisibleText(value: string, language: Language) {
+  const dictionary = language === "fr" ? englishToFrench : frenchToEnglish;
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return value;
+  }
+
+  const exact = dictionary[trimmed];
+  if (exact) {
+    return value.replace(trimmed, exact);
+  }
+
+  let translated = value;
+  for (const [source, target] of Object.entries(dictionary)
+    .filter(([source]) => source.length > 8 && /[\s.:/-]/.test(source))
+    .sort((a, b) => b[0].length - a[0].length)) {
+    translated = translated.split(source).join(target);
+  }
+  return translated;
+}
+
+function applyLanguageToElement(root: ParentNode, language: Language) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || ["SCRIPT", "STYLE", "NOSCRIPT"].includes(parent.tagName)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      if (!node.textContent?.trim()) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  const nodes: Text[] = [];
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode as Text);
+  }
+
+  for (const node of nodes) {
+    const translated = translateVisibleText(node.textContent ?? "", language);
+    if (translated !== node.textContent) {
+      node.textContent = translated;
+    }
+  }
+
+  const elementRoot = root instanceof Element ? root : document.body;
+  const elements = elementRoot.querySelectorAll<HTMLElement>("[placeholder], [title], [aria-label], option");
+  for (const element of Array.from(elements)) {
+    for (const attribute of ["placeholder", "title", "aria-label"]) {
+      const current = element.getAttribute(attribute);
+      if (current) {
+        const translated = translateVisibleText(current, language);
+        if (translated !== current) {
+          element.setAttribute(attribute, translated);
+        }
+      }
+    }
+  }
+}
+
+function LanguageController() {
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") {
+      return "fr";
+    }
+    return (window.localStorage.getItem("cyncro-language") as Language | null) ?? "fr";
+  });
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    window.localStorage.setItem("cyncro-language", language);
+    applyLanguageToElement(document.body, language);
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "childList") {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) {
+              applyLanguageToElement(node.parentNode ?? document.body, language);
+            }
+          });
+        }
+        if (mutation.type === "attributes" && mutation.target instanceof Element) {
+          applyLanguageToElement(mutation.target, language);
+        }
+        if (mutation.type === "characterData") {
+          applyLanguageToElement(mutation.target.parentNode ?? document.body, language);
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["placeholder", "title", "aria-label"],
+    });
+
+    return () => observer.disconnect();
+  }, [language]);
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded border border-slate-600 bg-slate-950/95 px-3 py-2 text-xs font-semibold text-slate-100 shadow-terminal backdrop-blur">
+      <label htmlFor="language-select" className="uppercase tracking-normal text-slate-300">
+        Langue
+      </label>
+      <select
+        id="language-select"
+        data-testid="language-select"
+        className="h-8 rounded border border-slate-700 bg-slate-900 px-2 text-xs font-semibold text-slate-100 outline-none transition focus:border-emerald-400"
+        value={language}
+        onChange={(event) => setLanguage(event.target.value as Language)}
+        aria-label="Choisir la langue"
+        title="Choisir la langue"
+      >
+        <option value="fr">Français</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  );
+}
+
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -901,6 +1268,7 @@ export default function CyncroOperationalSuite() {
   if (activeInterface === "counter") {
     return (
       <main className="min-h-screen bg-[#051424] text-slate-100">
+        <LanguageController />
         <CounterInterface
           references={references}
           groups={groups}
@@ -916,6 +1284,7 @@ export default function CyncroOperationalSuite() {
   if (activeInterface === "financier") {
     return (
       <main className="min-h-screen bg-[#07111e] text-slate-50">
+        <LanguageController />
         <FinancierInterface
           references={references}
           groups={groups}
@@ -934,6 +1303,7 @@ export default function CyncroOperationalSuite() {
 
   return (
     <main className="min-h-screen bg-align-void text-slate-50">
+      <LanguageController />
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
         <div className="flex min-h-16 items-center justify-between gap-4 px-5">
           <div className="relative flex items-center gap-4">
@@ -1050,6 +1420,7 @@ function LoginScreen({
 
   return (
     <main className="grid min-h-screen bg-align-void text-slate-50 lg:grid-cols-[0.92fr_1.08fr]">
+      <LanguageController />
       <section className="flex min-h-screen flex-col justify-between border-r border-slate-800 bg-slate-950 px-8 py-8">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded bg-emerald-400 text-base font-black text-slate-950">
